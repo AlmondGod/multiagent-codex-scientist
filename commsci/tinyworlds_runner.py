@@ -86,4 +86,8 @@ def parse_metrics(logs: str, artifact_dir: Path, config: dict[str, Any]) -> dict
                 metrics[name] = float(match.group(1))
             except ValueError:
                 metrics[name] = match.group(1)
+    if "primary_score" not in metrics:
+        loss = metrics.get("reconstruction_loss", metrics.get("loss"))
+        if isinstance(loss, (int, float)):
+            metrics["primary_score"] = round(1.0 / (1.0 + float(loss)), 6)
     return metrics

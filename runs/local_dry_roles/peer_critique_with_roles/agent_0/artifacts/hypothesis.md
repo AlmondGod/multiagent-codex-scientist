@@ -1,0 +1,1 @@
+Agent 0 hypothesis: a small targeted TinyWorlds world-model change can improve the primary metric under the fixed budget for: Improve TinyWorlds world-model quality under a fixed small compute budget.

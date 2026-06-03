@@ -1,0 +1,9 @@
+{
+  "change_type": "added_ablation",
+  "decision_changed": true,
+  "evidence": "Primary score changed from 0.52 to 0.5295.",
+  "input_received": "{\n  \"decision_changed\": true,\n  \"change_type\": \"added_ablation\",\n  \"reason\": \"Dry-run critique recommends a smaller controlled follow-up.\",\n  \"revised_experiment_plan\": \"Run a bounded ablation that changes one world-model setting and compares the primary metric.\"\n}",
+  "later_helped": true,
+  "reason": "Dry-run critique recommends a smaller controlled follow-up.",
+  "revised_experiment_plan": "Run a bounded ablation that changes one world-model setting and compares the primary metric."
+}

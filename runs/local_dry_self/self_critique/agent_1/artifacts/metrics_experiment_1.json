@@ -1,0 +1,8 @@
+{
+  "codebook_entropy": 0.6923,
+  "experiment_success": true,
+  "prediction_loss": 0.9383,
+  "primary_score": 0.52,
+  "reconstruction_loss": 0.9231,
+  "runtime_seconds": 16.511
+}

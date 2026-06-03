@@ -28,6 +28,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "seed": 0,
         "max_prompt_tokens": 6000,
         "max_completion_tokens": 1000,
+        "mock_model": False,
     },
     "compute": {
         "reduced_mode": True,
@@ -104,6 +105,7 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
             "seed": args.seed,
             "max_prompt_tokens": args.max_prompt_tokens,
             "max_completion_tokens": args.max_completion_tokens,
+            "mock_model": args.mock_model,
         },
         "compute": {
             "num_agents": args.num_agents,

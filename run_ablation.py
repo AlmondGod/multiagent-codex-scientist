@@ -50,6 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_tokens_per_critique", type=int, default=None)
     parser.add_argument("--max_prompt_tokens", type=int, default=None)
     parser.add_argument("--max_completion_tokens", type=int, default=None)
+    parser.add_argument("--mock_model", action="store_true", default=None)
     parser.add_argument("--allowed_files", nargs="*", default=None)
     parser.add_argument("--forbidden_files", nargs="*", default=None)
     parser.add_argument("--write_full_paper", type=bool_arg, default=None)
@@ -83,7 +84,7 @@ def main() -> int:
         temperature=float(config["model"]["temperature"]),
         seed=seed,
         max_completion_tokens=int(config["model"]["max_completion_tokens"]),
-        dry_run=args.dry_run,
+        dry_run=args.dry_run or bool(config["model"].get("mock_model")),
     )
     global_dir = ensure_dir(output_dir / "global")
     write_config(global_dir / "config.yaml", config)

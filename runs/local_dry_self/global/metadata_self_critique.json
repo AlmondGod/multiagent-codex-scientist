@@ -1,0 +1,38 @@
+{
+  "ai_scientist_v2_git_commit": "96bd51617cfdbb494a9fc283af00fe090edfae48",
+  "ai_scientist_v2_status": {
+    "path": "/Users/almondgod/Repositories/AI-Scientist-v2",
+    "status": "available"
+  },
+  "argv": [
+    "run_ablation.py",
+    "--condition",
+    "self_critique",
+    "--num_agents",
+    "3",
+    "--tinyworlds_dir",
+    "/Users/almondgod/Repositories/tinyworlds",
+    "--ai_scientist_v2_dir",
+    "/Users/almondgod/Repositories/AI-Scientist-v2",
+    "--output_dir",
+    "runs/local_dry_self",
+    "--dry_run",
+    "--seed",
+    "0"
+  ],
+  "condition": "self_critique",
+  "dry_run": true,
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "processor": "arm",
+    "python": "3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 08:22:19) [Clang 14.0.6 ]"
+  },
+  "model_endpoint": "http://localhost:1234/v1",
+  "model_name": "qwen3-coder-30b-a3b-instruct",
+  "roles": {},
+  "run_id": "local_dry_self",
+  "seed": 0,
+  "timestamp": "2026-06-03T06:25:11.788137+00:00",
+  "tinyworlds_git_commit": "a99f3a8195bc8b81e21304121528ae32cb56db05"
+}

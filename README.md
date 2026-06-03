@@ -72,6 +72,46 @@ python3 run_ablation.py \
 
 If `--ai_scientist_v2_dir` is omitted in real mode, the wrapper attempts to clone [AI-Scientist-v2](https://github.com/SakanaAI/AI-Scientist-v2) into `external/AI-Scientist-v2`. If cloning fails, it exits with a setup message.
 
+## A100 Smoke
+
+`configs/a100_smoke.yaml` is for integration only, not results. It runs one tiny TinyWorlds video-tokenizer update per experiment, parses `Step N Loss: ...` from logs as `reconstruction_loss`, derives `primary_score = 1 / (1 + reconstruction_loss)`, and uses `mock_model: true` so real TinyWorlds execution can be tested without requiring a local LLM server.
+
+Run self-critique first:
+
+```bash
+python3 run_ablation.py \
+  --condition self_critique \
+  --num_agents 1 \
+  --tinyworlds_dir /workspace/tinyworlds \
+  --ai_scientist_v2_dir /workspace/AI-Scientist-v2 \
+  --output_dir runs/a100_real_self_smoke \
+  --config configs/a100_smoke.yaml \
+  --max_training_steps 100 \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+Then run the smallest peer smoke:
+
+```bash
+python3 run_ablation.py \
+  --condition peer_critique \
+  --num_agents 2 \
+  --tinyworlds_dir /workspace/tinyworlds \
+  --ai_scientist_v2_dir /workspace/AI-Scientist-v2 \
+  --output_dir runs/a100_real_peer_smoke \
+  --config configs/a100_smoke.yaml \
+  --max_training_steps 100 \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+Stop after this peer smoke unless explicitly running the full ablation.
+
 ## Aggregation
 
 ```bash

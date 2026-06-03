@@ -1,0 +1,79 @@
+{
+  "agents": [
+    {
+      "ablation_quality": 0.7,
+      "agent_id": "agent_0",
+      "communication_value": 1,
+      "completion_tokens": 165,
+      "condition": "self_critique",
+      "decision_changed": true,
+      "duplicate_experiment_rate": 0.6666666666666666,
+      "experiment_success_rate": 1,
+      "failure_avoidance": 0,
+      "final_metric_score": 0.5225,
+      "later_helped": true,
+      "metric_improvement": 0.01079999999999992,
+      "prompt_tokens": 704,
+      "reviewer_score": 6.5,
+      "runtime": 35.941,
+      "unsupported_claim_count": 1
+    },
+    {
+      "ablation_quality": 0.7,
+      "agent_id": "agent_1",
+      "communication_value": 1,
+      "completion_tokens": 165,
+      "condition": "self_critique",
+      "decision_changed": true,
+      "duplicate_experiment_rate": 0.6666666666666666,
+      "experiment_success_rate": 1,
+      "failure_avoidance": 0,
+      "final_metric_score": 0.5295,
+      "later_helped": true,
+      "metric_improvement": 0.009499999999999953,
+      "prompt_tokens": 703,
+      "reviewer_score": 6.5,
+      "runtime": 33.73,
+      "unsupported_claim_count": 1
+    },
+    {
+      "ablation_quality": 0.7,
+      "agent_id": "agent_2",
+      "communication_value": 1,
+      "completion_tokens": 165,
+      "condition": "self_critique",
+      "decision_changed": true,
+      "duplicate_experiment_rate": 0.6666666666666666,
+      "experiment_success_rate": 1,
+      "failure_avoidance": 0,
+      "final_metric_score": 0.5376,
+      "later_helped": true,
+      "metric_improvement": 0.013799999999999923,
+      "prompt_tokens": 704,
+      "reviewer_score": 6.5,
+      "runtime": 32.259,
+      "unsupported_claim_count": 1
+    }
+  ],
+  "conditions": [
+    {
+      "ablation_quality": 0.7,
+      "agents": 3,
+      "communication_value": 1.0,
+      "completion_tokens": 495,
+      "condition": "self_critique",
+      "duplicate_experiment_rate": 0.666667,
+      "experiment_success_rate": 1.0,
+      "failure_avoidance": 0.0,
+      "final_metric_score": 0.529867,
+      "fraction_decision_changed": 1,
+      "fraction_later_helped": 1,
+      "metric_improvement": 0.011367,
+      "prompt_tokens": 2111,
+      "reviewer_score": 6.5,
+      "runtime": 33.976667,
+      "unsupported_claim_count": 1.0,
+      "useful_decision_changes": 3
+    }
+  ]
+}

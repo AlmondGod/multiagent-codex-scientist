@@ -1,0 +1,76 @@
+You are critiquing a TinyWorlds research branch under matched budget constraints.
+Use the same critique standard regardless of condition. Only identity/context differs.
+Condition: peer_critique.
+
+Target branch summary:
+{
+  "agent_id": "agent_0",
+  "artifact_paths": [
+    "/Users/almondgod/Repositories/peer-critique-search/runs/local_dry_peer/peer_critique/agent_0/artifacts"
+  ],
+  "baseline_metrics": {
+    "experiment_success": true,
+    "primary_score": 0.5
+  },
+  "branch_id": "peer_critique_agent_0",
+  "code_diff_summary": "+ dry-run branch edit for agent_0",
+  "condition": "peer_critique",
+  "current_interpretation": "Primary score after experiment 1 is 0.5117 under the bounded budget.",
+  "experiment_plan_1": "Run one bounded TinyWorlds training/evaluation pass, edit only allowed files, and compare primary metric plus failure status against the baseline.",
+  "failure_notes": "",
+  "hypothesis": "Agent 0 hypothesis: a small targeted TinyWorlds world-model change can improve the primary metric under the fixed budget for: Improve TinyWorlds world-model quality under a fixed small compute budget.",
+  "logs_summary": "DRY RUN agent=0 step=1\nprimary_score=0.5117\nreconstruction_loss=0.9541\n",
+  "metrics_experiment_1": {
+    "codebook_entropy": 0.7421,
+    "experiment_success": true,
+    "prediction_loss": 0.9964,
+    "primary_score": 0.5117,
+    "reconstruction_loss": 0.9541,
+    "runtime_seconds": 16.448
+  },
+  "proposed_next_experiment": "Agent 0 proposed next experiment: keep compute fixed and test one controlled change suggested by experiment 1 metrics.",
+  "role": null,
+  "run_id": "local_dry_peer",
+  "workspace_path": "/Users/almondgod/Repositories/peer-critique-search/runs/local_dry_peer/peer_critique/agent_0/workspace"
+}
+
+Critic local context:
+{
+  "agent_id": "agent_1",
+  "artifact_paths": [
+    "/Users/almondgod/Repositories/peer-critique-search/runs/local_dry_peer/peer_critique/agent_1/artifacts"
+  ],
+  "baseline_metrics": {
+    "experiment_success": true,
+    "primary_score": 0.5
+  },
+  "branch_id": "peer_critique_agent_1",
+  "code_diff_summary": "+ dry-run branch edit for agent_1",
+  "condition": "peer_critique",
+  "current_interpretation": "Primary score after experiment 1 is 0.52 under the bounded budget.",
+  "experiment_plan_1": "Run one bounded TinyWorlds training/evaluation pass, edit only allowed files, and compare primary metric plus failure status against the baseline.",
+  "failure_notes": "",
+  "hypothesis": "Agent 1 hypothesis: a small targeted TinyWorlds world-model change can improve the primary metric under the fixed budget for: Improve TinyWorlds world-model quality under a fixed small compute budget.",
+  "logs_summary": "DRY RUN agent=1 step=1\nprimary_score=0.52\nreconstruction_loss=0.9231\n",
+  "metrics_experiment_1": {
+    "codebook_entropy": 0.6923,
+    "experiment_success": true,
+    "prediction_loss": 0.9383,
+    "primary_score": 0.52,
+    "reconstruction_loss": 0.9231,
+    "runtime_seconds": 16.511
+  },
+  "proposed_next_experiment": "Agent 1 proposed next experiment: keep compute fixed and test one controlled change suggested by experiment 1 metrics.",
+  "role": null,
+  "run_id": "local_dry_peer",
+  "workspace_path": "/Users/almondgod/Repositories/peer-critique-search/runs/local_dry_peer/peer_critique/agent_1/workspace"
+}
+
+Return concise Markdown plus a JSON-compatible interpretation if useful. Address exactly:
+1. Strongest concern about the hypothesis or interpretation.
+2. Missing control, baseline, or ablation.
+3. Metric or evaluation risk.
+4. Implementation/debug risk.
+5. Suggested next experiment under the fixed budget.
+6. What result would falsify the current hypothesis?
+7. Whether the proposed next experiment is worth running or should be changed.

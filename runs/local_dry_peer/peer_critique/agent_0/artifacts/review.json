@@ -1,0 +1,6 @@
+{
+  "ablation_quality": 0.7,
+  "raw": "Dry-run reviewer: plausible note with one unsupported claim.",
+  "reviewer_score": 6.5,
+  "unsupported_claim_count": 1
+}

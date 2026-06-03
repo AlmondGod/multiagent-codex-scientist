@@ -1,0 +1,66 @@
+base_system:
+  repo_url: "https://github.com/SakanaAI/AI-Scientist-v2"
+  use_existing_tree_search: true
+  use_existing_reviewer: true
+  write_full_paper: false
+
+model:
+  backend: "openai_compatible"
+  model_url: "http://localhost:1234/v1"
+  default_model: "qwen3-coder-30b-a3b-instruct"
+  fallback_models:
+    - "qwen2.5-coder-14b"
+    - "qwen2.5-coder-7b"
+  temperature: 0.2
+  max_prompt_tokens: 6000
+  max_completion_tokens: 1000
+  mock_model: true
+
+compute:
+  reduced_mode: true
+  num_agents: 1
+  max_depth_per_agent: 2
+  max_experiments_per_agent: 2
+  max_total_experiments: 4
+  max_training_steps: 100
+  max_runtime_minutes_per_experiment: 10
+  max_tokens_per_critique: 1000
+
+experiment:
+  substrate: "TinyWorlds"
+  conditions:
+    - "self_critique"
+    - "peer_critique"
+  task_spec: "Improve TinyWorlds world-model quality under a fixed small compute budget."
+  train_command: >-
+    WANDB_MODE=disabled PYTHONPATH=/workspace/tinyworlds:$PYTHONPATH
+    python3 scripts/train_video_tokenizer.py
+    --config configs/video_tokenizer.yaml
+    --training_config configs/dev/dev_training.yaml
+    use_wandb=false
+    n_updates=1
+    log_interval=1
+    batch_size_per_gpu=2
+    preload_ratio=0.05
+    compile=false
+    amp=false
+    distributed.use_ddp=false
+    distributed.use_fsdp=false
+    distributed.reshard_after_forward=false
+    nproc_per_node=1
+    standalone=true
+  eval_command: null
+  dataset_config_path: "configs/dev/dev_training.yaml"
+  allowed_files:
+    - "configs/"
+    - "models/"
+    - "scripts/"
+    - "utils/"
+  forbidden_files:
+    - "data/"
+    - "results/"
+    - "checkpoints/"
+  metric_json_paths: {}
+  metric_regexes:
+    reconstruction_loss: 'Step\s+\d+\s+Loss:\s+([0-9.eE+-]+)'
+  primary_metric: "primary_score"

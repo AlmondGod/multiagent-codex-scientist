@@ -1,0 +1,9 @@
+1. Strongest concern: the current interpretation may over-credit one noisy metric.
+2. Missing control, baseline, or ablation: add a one-variable ablation against the first experiment.
+3. Metric or evaluation risk: report primary score plus runtime and failure status.
+4. Implementation/debug risk: verify the changed path is inside allowed_files.
+5. Suggested next experiment: keep compute fixed and run a smaller controlled variant.
+6. Falsification: no improvement or a failed run under the same budget.
+7. Run/change recommendation: change the proposed next experiment to the controlled ablation.
+
+Condition context: peer_critique. Prompt chars: 3756.
