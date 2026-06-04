@@ -14,13 +14,19 @@ from commsci.ai_scientist_v2_wrapper import (
     run_reviewer,
 )
 from commsci.ai_scientist_runner import run_ai_scientist_branch_expansion
-from commsci.tinyworlds_knobs import allowlist_from_config, select_knobs, summarize_knobs
+from commsci.tinyworlds_knobs import (
+    allowlist_from_config,
+    initial_knobs_for_agent,
+    select_knobs,
+    summarize_knobs,
+)
 from commsci.artifacts import (
     agent_artifact_dir,
     agent_workspace_dir,
     ensure_dir,
     environment_info,
     git_commit_hash,
+    read_json,
     utc_now,
     write_json,
     write_text,
@@ -161,6 +167,15 @@ def run_agent_first_step(
     write_text(artifact_dir / "hypothesis.md", hypothesis + "\n")
     write_text(artifact_dir / "experiment_plan_1.md", plan1 + "\n")
     baseline_metrics = {"primary_score": 0.5, "experiment_success": True} if dry_run else {}
+    initial_env: dict[str, str] = {}
+    initial_applied: dict[str, Any] = {}
+    if use_ai_scientist_runner(config, dry_run):
+        allowlist = allowlist_from_config(config)
+        initial_env, initial_applied, initial_dropped = initial_knobs_for_agent(agent_index, allowlist)
+        write_json(
+            artifact_dir / "initial_knobs.json",
+            {"applied": initial_applied, "env": initial_env, "dropped": initial_dropped},
+        )
     try:
         if use_ai_scientist_runner(config, dry_run):
             expansion = run_ai_scientist_branch_expansion(
@@ -171,6 +186,7 @@ def run_agent_first_step(
                 config=config,
                 seed=seed,
                 critique_context=None,
+                knob_overrides=initial_env,
             )
             metrics1, logs1 = expansion["metrics"], expansion["logs"]
             hypothesis = expansion.get("hypothesis") or hypothesis
@@ -248,13 +264,30 @@ Critique:
     knob_overrides: dict[str, str] = {}
     if use_ai_scientist_runner(config, dry_run):
         allowlist = allowlist_from_config(config)
-        knob_overrides, applied_knobs, dropped_knobs = select_knobs(
-            client, critique, revised_plan, allowlist, condition, artifact_dir
+        # Start from this agent's step-1 configuration so the critique change builds on
+        # the agent's own branch rather than resetting to defaults.
+        initial_path = artifact_dir / "initial_knobs.json"
+        initial = read_json(initial_path) if initial_path.exists() else {}
+        initial_env = initial.get("env", {}) if isinstance(initial, dict) else {}
+        initial_applied = initial.get("applied", {}) if isinstance(initial, dict) else {}
+        critique_env, critique_applied, dropped_knobs = select_knobs(
+            client, critique, revised_plan, allowlist, condition, artifact_dir,
+            current_knobs=initial_applied,
         )
+        knob_overrides = {**initial_env, **critique_env}
+        applied_knobs = {**initial_applied, **critique_applied}
         decision["applied_knobs"] = applied_knobs
+        decision["initial_knobs"] = initial_applied
+        decision["critique_knob_changes"] = critique_applied
         write_json(
             artifact_dir / "applied_knobs.json",
-            {"applied": applied_knobs, "env": knob_overrides, "dropped": dropped_knobs},
+            {
+                "applied": applied_knobs,
+                "env": knob_overrides,
+                "initial": initial_applied,
+                "critique_changes": critique_applied,
+                "dropped": dropped_knobs,
+            },
         )
         write_text(artifact_dir / "applied_knobs.md", summarize_knobs(applied_knobs) + "\n")
     try:

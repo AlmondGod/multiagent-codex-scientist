@@ -48,6 +48,35 @@ TINYWORLDS_KNOBS: dict[str, dict[str, Any]] = {
 }
 
 
+# Distinct, safe step-1 starting configurations so each agent varies one knob from
+# baseline (rather than every agent running the identical experiment). Agent i gets
+# STARTING_VARIATIONS[i % len]. Every value is drawn from the verified-safe knob set
+# and changes exactly one knob, keeping each agent's starting point interpretable.
+STARTING_VARIATIONS: list[dict[str, Any]] = [
+    {"depth": 2},
+    {"use_env_actions": 1},
+    {"dynamics_change_weight": 1.0},
+    {"motion_loss_weight": 1.0},
+    {"depth": 3},
+    {"dynamics_pixel_loss_weight": 1.0},
+    {"motion_change_weight": 1.0},
+    {"motion_prior_weight": 1.0},
+]
+
+
+def initial_knobs_for_agent(
+    agent_index: int, allowlist: dict[str, dict[str, Any]]
+) -> tuple[dict[str, str], dict[str, Any], list[str]]:
+    """Pick this agent's distinct step-1 starting knobs (validated against allowlist).
+
+    Returns (env_overrides {TW_*: str}, applied {friendly: value}, dropped [reasons]).
+    """
+    if not STARTING_VARIATIONS:
+        return {}, {}, []
+    raw = STARTING_VARIATIONS[agent_index % len(STARTING_VARIATIONS)]
+    return validate_knobs(raw, allowlist)
+
+
 def allowlist_from_config(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Return the active knob allowlist.
 
@@ -146,7 +175,10 @@ def _extract_json_object(text: str) -> dict[str, Any]:
 
 
 def build_selection_prompt(
-    critique: str, revised_plan: str, allowlist: dict[str, dict[str, Any]]
+    critique: str,
+    revised_plan: str,
+    allowlist: dict[str, dict[str, Any]],
+    current_knobs: dict[str, Any] | None = None,
 ) -> str:
     lines = []
     for name, spec in allowlist.items():
@@ -158,12 +190,18 @@ def build_selection_prompt(
             rng = f"{spec['type']} in [{spec['min']}, {spec['max']}]"
         lines.append(f"- {name}: {rng} ({spec['note']})")
     menu = "\n".join(lines)
+    current = (
+        f"Current configuration (experiment 1 used these): {json.dumps(current_knobs)}\n"
+        if current_knobs
+        else "Current configuration: baseline defaults (depth=1, all weights 0).\n"
+    )
     return (
         "You are configuring the NEXT TinyWorlds experiment to act on the revised plan below.\n"
         "You may ONLY adjust these knobs:\n"
         f"{menu}\n\n"
+        f"{current}"
         "Output ONLY a JSON object mapping knob names to their NEW values. Include only the\n"
-        "knobs you want to change relative to the previous run. Use {} for no change.\n"
+        "knobs you want to change relative to the current configuration above. Use {} for no change.\n"
         "Do not add commentary, code, or any key not listed above.\n\n"
         f"Revised plan:\n{revised_plan}\n\n"
         f"Critique that motivated it:\n{critique[:1500]}\n"
@@ -177,15 +215,19 @@ def select_knobs(
     allowlist: dict[str, dict[str, Any]],
     condition: str,
     artifact_dir: Path,
+    current_knobs: dict[str, Any] | None = None,
 ) -> tuple[dict[str, str], dict[str, Any], list[str]]:
     """Ask the communication model to pick validated TinyWorlds knob overrides.
+
+    current_knobs (friendly {name: value}) is the agent's step-1 configuration, shown to
+    the model so its changes build on the agent's own branch rather than absolute defaults.
 
     Returns (env_overrides {TW_*: str}, applied {friendly: value}, dropped [reasons]).
     On any model/parse failure, returns empty overrides (baseline re-run) rather than raising.
     """
     if not allowlist:
         return {}, {}, []
-    prompt = build_selection_prompt(critique, revised_plan, allowlist)
+    prompt = build_selection_prompt(critique, revised_plan, allowlist, current_knobs)
     try:
         response = client.complete(prompt, condition, artifact_dir, "knob_selection")
         raw = _extract_json_object(response.text)
