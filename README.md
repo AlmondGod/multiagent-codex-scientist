@@ -74,7 +74,11 @@ If `--ai_scientist_v2_dir` is omitted in real mode, the wrapper attempts to clon
 
 ## A100 Smoke
 
-`configs/a100_smoke.yaml` is for integration only, not results. It runs one tiny TinyWorlds video-tokenizer update per experiment, parses `Step N Loss: ...` from logs as `reconstruction_loss`, derives `primary_score = 1 / (1 + reconstruction_loss)`, and uses `mock_model: true` so real TinyWorlds execution can be tested without requiring a local LLM server.
+`configs/a100_smoke.yaml` is for integration only, not results. It runs one tiny TinyWorlds video-tokenizer update per experiment, parses `Step N Loss: ...` from logs as `reconstruction_loss`, and derives `primary_score = 1 / (1 + reconstruction_loss)`.
+
+Agent workspaces are copied from TinyWorlds with large generated/data directories excluded. The shared TinyWorlds `data/` directory is symlinked into each agent workspace so every agent can read the same dataset without duplicating it.
+
+The A100 smoke config keeps critique completions deterministic with `mock_model: true`, but reviewer execution is wired through AI-Scientist-v2's real `perform_review()` path. Set `base_system.reviewer_model_url` to a reachable OpenAI-compatible server or set `base_system.reviewer_backend: ai_scientist` with a supported model and the required API key. If the reviewer cannot run, `review.json` stores the failure and traceback while the orchestration continues.
 
 Run self-critique first:
 
@@ -111,6 +115,50 @@ python3 run_ablation.py \
 ```
 
 Stop after this peer smoke unless explicitly running the full ablation.
+
+## AI-Scientist-v2 Branch Smoke
+
+`configs/a100_ai_scientist_smoke.yaml` opts into `experiment.runner: ai_scientist_v2`. In this mode each communication meta-step delegates the branch expansion to AI-Scientist-v2's BFTS loop with a reduced config: one worker, one draft, one step, no report generation. The communication wrapper only adds the checkpoint between two AI-Scientist branch expansions.
+
+This mode expects the TinyWorlds autoresearch harness, not the full TinyWorlds repo:
+
+```text
+/workspace/tinyworlds-autoresearch/train.py
+/workspace/tinyworlds-autoresearch/models.py
+/workspace/tinyworlds-autoresearch/setup.py
+```
+
+Run only after a model backend is available for AI-Scientist-v2 code/feedback calls. The default config uses Ollama-style model names (`ollama/qwen3:32b`) because AI-Scientist-v2's tree-search backend supports OpenAI and Ollama paths directly.
+
+```bash
+python3 run_ablation.py \
+  --condition self_critique \
+  --num_agents 1 \
+  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
+  --ai_scientist_v2_dir /workspace/AI-Scientist-v2 \
+  --output_dir runs/a100_ai_self_smoke \
+  --config configs/a100_ai_scientist_smoke.yaml \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+Then run the 2-agent peer smoke and stop:
+
+```bash
+python3 run_ablation.py \
+  --condition peer_critique \
+  --num_agents 2 \
+  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
+  --ai_scientist_v2_dir /workspace/AI-Scientist-v2 \
+  --output_dir runs/a100_ai_peer_smoke \
+  --config configs/a100_ai_scientist_smoke.yaml \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
 
 ## Aggregation
 

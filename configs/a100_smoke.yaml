@@ -3,6 +3,13 @@ base_system:
   use_existing_tree_search: true
   use_existing_reviewer: true
   write_full_paper: false
+  reviewer_enabled: true
+  reviewer_backend: "openai_compatible"
+  reviewer_model: "gpt-4o-mini"
+  reviewer_model_url: "http://localhost:1234/v1"
+  reviewer_num_reflections: 1
+  reviewer_num_fs_examples: 0
+  reviewer_temperature: 0.2
 
 model:
   backend: "openai_compatible"

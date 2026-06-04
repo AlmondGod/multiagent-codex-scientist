@@ -13,6 +13,7 @@ from commsci.ai_scientist_v2_wrapper import (
     propose_next_experiment,
     run_reviewer,
 )
+from commsci.ai_scientist_runner import run_ai_scientist_branch_expansion
 from commsci.artifacts import (
     agent_artifact_dir,
     agent_workspace_dir,
@@ -54,12 +55,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allowed_files", nargs="*", default=None)
     parser.add_argument("--forbidden_files", nargs="*", default=None)
     parser.add_argument("--write_full_paper", type=bool_arg, default=None)
+    parser.add_argument("--reviewer_enabled", type=bool_arg, default=None)
+    parser.add_argument("--reviewer_backend", default=None)
+    parser.add_argument("--reviewer_model", default=None)
+    parser.add_argument("--reviewer_model_url", default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--train_command", default=None)
     parser.add_argument("--eval_command", default=None)
     parser.add_argument("--dataset_config_path", default=None)
     parser.add_argument("--primary_metric", default=None)
+    parser.add_argument("--runner", choices=["tinyworlds_command", "ai_scientist_v2"], default=None)
+    parser.add_argument("--ai_scientist_data_dir", default=None)
+    parser.add_argument("--ai_scientist_config_template", default=None)
+    parser.add_argument("--ai_scientist_code_model", default=None)
+    parser.add_argument("--ai_scientist_feedback_model", default=None)
     return parser.parse_args()
 
 
@@ -137,7 +147,7 @@ def run_agent_first_step(
     agent_id = f"agent_{agent_index}"
     artifact_dir = ensure_dir(agent_artifact_dir(output_dir, condition, agent_id))
     workspace_dir = agent_workspace_dir(output_dir, condition, agent_id)
-    workspace_mode = prepare_agent_workspace(
+    workspace_mode = "ai_scientist_v2" if use_ai_scientist_runner(config, dry_run) else prepare_agent_workspace(
         config["paths"].get("tinyworlds_dir"),
         workspace_dir,
         dry_run,
@@ -151,14 +161,31 @@ def run_agent_first_step(
     write_text(artifact_dir / "experiment_plan_1.md", plan1 + "\n")
     baseline_metrics = {"primary_score": 0.5, "experiment_success": True} if dry_run else {}
     try:
-        metrics1, logs1 = run_experiment(workspace_dir, artifact_dir, agent_index, 1, config, dry_run, seed)
+        if use_ai_scientist_runner(config, dry_run):
+            expansion = run_ai_scientist_branch_expansion(
+                artifact_dir=artifact_dir,
+                agent_id=agent_id,
+                branch_id=f"{condition}_{agent_id}",
+                step=1,
+                config=config,
+                seed=seed,
+                critique_context=None,
+            )
+            metrics1, logs1 = expansion["metrics"], expansion["logs"]
+            hypothesis = expansion.get("hypothesis") or hypothesis
+            plan1 = expansion.get("experiment_plan") or plan1
+            workspace_dir = Path(expansion.get("workspace_path") or workspace_dir)
+        else:
+            expansion = {}
+            metrics1, logs1 = run_experiment(workspace_dir, artifact_dir, agent_index, 1, config, dry_run, seed)
         failure_notes = ""
     except Exception as exc:
+        expansion = {}
         metrics1, logs1 = {"experiment_success": False, "error": str(exc)}, str(exc)
         failure_notes = str(exc)
     write_json(artifact_dir / "metrics_experiment_1.json", metrics1)
     write_text(artifact_dir / "logs_experiment_1.txt", logs1)
-    diff = collect_git_diff(workspace_dir)
+    diff = expansion.get("code_diff", "") if expansion else collect_git_diff(workspace_dir)
     if dry_run and not diff:
         diff = f"diff --git a/world_model.py b/world_model.py\n+ dry-run branch edit for {agent_id}\n"
     write_text(artifact_dir / "git_diff.patch", diff)
@@ -170,15 +197,15 @@ def run_agent_first_step(
         "role": roles.get(agent_id) if condition == "peer_critique_with_roles" else None,
         "hypothesis": hypothesis,
         "experiment_plan_1": plan1,
-        "code_diff_summary": summarize_diff(diff),
+        "code_diff_summary": expansion.get("code_diff_summary") if expansion else summarize_diff(diff),
         "baseline_metrics": baseline_metrics,
         "metrics_experiment_1": metrics1,
         "logs_summary": logs1[:1200],
         "failure_notes": failure_notes,
-        "current_interpretation": interpretation(metrics1),
-        "proposed_next_experiment": propose_next_experiment(agent_index),
+        "current_interpretation": expansion.get("analysis") if expansion else interpretation(metrics1),
+        "proposed_next_experiment": expansion.get("proposed_next_experiment") if expansion else propose_next_experiment(agent_index),
         "workspace_path": str(workspace_dir),
-        "artifact_paths": [str(artifact_dir)],
+        "artifact_paths": [str(artifact_dir), *expansion.get("artifact_paths", [])] if expansion else [str(artifact_dir)],
     }
     write_json(artifact_dir / "branch_summary.json", summary)
     write_json(
@@ -216,7 +243,22 @@ Critique:
     revised_plan = decision["revised_experiment_plan"]
     write_text(artifact_dir / "experiment_plan_2.md", revised_plan + "\n")
     try:
-        metrics2, logs2 = run_experiment(workspace_dir, artifact_dir, agent_index, 2, config, dry_run, seed)
+        if use_ai_scientist_runner(config, dry_run):
+            expansion = run_ai_scientist_branch_expansion(
+                artifact_dir=artifact_dir,
+                agent_id=agent_id,
+                branch_id=f"{condition}_{agent_id}",
+                step=2,
+                config=config,
+                seed=seed,
+                critique_context=critique,
+                revised_plan=revised_plan,
+            )
+            metrics2, logs2 = expansion["metrics"], expansion["logs"]
+            if expansion.get("code_diff"):
+                write_text(artifact_dir / "git_diff.patch", expansion["code_diff"])
+        else:
+            metrics2, logs2 = run_experiment(workspace_dir, artifact_dir, agent_index, 2, config, dry_run, seed)
     except Exception as exc:
         metrics2, logs2 = {"experiment_success": False, "error": str(exc)}, str(exc)
     metrics1 = json.loads((artifact_dir / "metrics_experiment_1.json").read_text(encoding="utf-8"))
@@ -227,12 +269,16 @@ Critique:
     note = research_note(artifact_dir, decision, metrics1, metrics2, critique)
     note_path = artifact_dir / "research_note.md"
     write_text(note_path, note)
-    run_reviewer(note_path, artifact_dir / "review.json", dry_run)
+    run_reviewer(note_path, artifact_dir / "review.json", dry_run, config)
 
 
 def summarize_diff(diff: str) -> str:
     lines = [line for line in diff.splitlines() if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))]
     return "\n".join(lines[:40]) if lines else "No code diff captured."
+
+
+def use_ai_scientist_runner(config: dict[str, Any], dry_run: bool) -> bool:
+    return (not dry_run) and config["experiment"].get("runner") == "ai_scientist_v2"
 
 
 def interpretation(metrics: dict[str, Any]) -> str:

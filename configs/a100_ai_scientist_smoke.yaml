@@ -1,0 +1,56 @@
+base_system:
+  repo_url: "https://github.com/SakanaAI/AI-Scientist-v2"
+  use_existing_tree_search: true
+  use_existing_reviewer: true
+  write_full_paper: false
+  reviewer_enabled: true
+  reviewer_backend: "ai_scientist"
+  reviewer_model: "ollama/qooba/qwen3-coder-30b-a3b-instruct:q3_k_m"
+  reviewer_model_url: null
+  reviewer_num_reflections: 1
+  reviewer_num_fs_examples: 0
+  reviewer_temperature: 0.2
+
+model:
+  backend: "openai_compatible"
+  model_url: "http://127.0.0.1:11434/v1"
+  default_model: "qooba/qwen3-coder-30b-a3b-instruct:q3_k_m"
+  temperature: 0.2
+  max_prompt_tokens: 6000
+  max_completion_tokens: 1000
+  mock_model: false
+
+compute:
+  reduced_mode: true
+  num_agents: 1
+  max_depth_per_agent: 2
+  max_experiments_per_agent: 2
+  max_total_experiments: 4
+  max_training_steps: 100
+  max_runtime_minutes_per_experiment: 10
+  max_tokens_per_critique: 1000
+
+experiment:
+  substrate: "TinyWorlds"
+  runner: "ai_scientist_v2"
+  conditions:
+    - "self_critique"
+    - "peer_critique"
+  task_spec: "Improve TinyWorlds world-model quality under a fixed small compute budget."
+  ai_scientist_data_dir: "/workspace/tinyworlds-autoresearch"
+  ai_scientist_config_template: "/workspace/AI-Scientist-v2/bfts_config_tinyworlds.yaml"
+  ai_scientist_code_model: "ollama/qooba/qwen3-coder-30b-a3b-instruct:q3_k_m"
+  ai_scientist_feedback_model: "ollama/qooba/qwen3-coder-30b-a3b-instruct:q3_k_m"
+  ai_scientist_timeout_seconds: 600
+  ai_scientist_time_budget_seconds: 100
+  ai_scientist_copy_data: false
+  allowed_files:
+    - "train.py"
+    - "models.py"
+  forbidden_files:
+    - "setup.py"
+    - "data/"
+    - "results/"
+  metric_json_paths: {}
+  metric_regexes: {}
+  primary_metric: "score"
