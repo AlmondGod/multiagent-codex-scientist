@@ -26,12 +26,13 @@ _WORKING = os.path.join(_HERE, "working")
 os.makedirs(_WORKING, exist_ok=True)
 _METRICS_PATH = os.path.join(_WORKING, "metrics.json")
 
+# Only --time_budget_sec and --out are fixed harness contract. Everything else
+# (depth, dataset, model_type, loss weights, ...) is driven by TW_* env vars so
+# Tier-1 knob overrides take effect. CLI flags would override env, so we omit them.
 cmd = [
     sys.executable,
     os.path.join(_HERE, "train.py"),
     "--time_budget_sec", str(_TIME_BUDGET),
-    "--depth", "1",
-    "--dataset", "minigrid",
     "--out", _METRICS_PATH,
 ]
 print(f"[runfile] Running: {{' '.join(cmd)}}", flush=True)
@@ -135,12 +136,16 @@ def run_direct_tinyworlds_expansion(
     seed: int,
     critique_context: str | None,
     revised_plan: str | None = None,
+    knob_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run TinyWorlds directly, bypassing BFTS code generation.
 
     Used when BFTS LLM code generation is unreliable (e.g. model ignores template).
     Calls the canonical runfile.py from the prepared_data_dir.  The full protocol
     (critique, decision_change, reviewer) runs normally on top of the real scores.
+
+    knob_overrides (Tier-1 controlled modification) is a {TW_*: str} mapping injected
+    as environment variables so train.py runs with the critique-driven configuration.
     """
     run_root = ensure_dir(artifact_dir / "ai_scientist_v2" / f"step_{step}")
     data_dir = prepare_ai_scientist_data_dir(config, run_root)
@@ -150,6 +155,16 @@ def run_direct_tinyworlds_expansion(
     env.setdefault("TW_TIME_BUDGET", str(config["experiment"].get("ai_scientist_time_budget_seconds", 100)))
     env.setdefault("WANDB_MODE", "disabled")
     ensure_local_ollama_credentials(config, env)
+    # Baseline TinyWorlds configuration (was previously hardcoded as runfile CLI args).
+    # Set as env defaults so Tier-1 knob_overrides can override them.
+    baseline = config["experiment"].get("tinyworlds_baseline_knobs") or {}
+    env.setdefault("TW_DATASET", str(baseline.get("TW_DATASET", "minigrid")))
+    env.setdefault("TW_DEPTH", str(baseline.get("TW_DEPTH", "1")))
+    for key, value in baseline.items():
+        env.setdefault(key, str(value))
+    applied_knobs = dict(knob_overrides or {})
+    for key, value in applied_knobs.items():
+        env[key] = str(value)
 
     runfile = data_dir / "runfile.py"
     cmd = [sys.executable, str(runfile)]
@@ -167,24 +182,33 @@ def run_direct_tinyworlds_expansion(
     metrics_path = data_dir / "working" / "metrics.json"
     if metrics_path.exists():
         raw = json.loads(metrics_path.read_text(encoding="utf-8"))
-        score = raw.get("score") or raw.get("val_mse") or raw.get("loss")
+        # TinyWorlds 'score'/'val_mse' is an error (lower is better). The ablation
+        # framework treats primary_score as higher-is-better, matching the existing
+        # tinyworlds_runner convention primary_score = 1/(1+loss).
+        loss = raw.get("val_mse")
+        if loss is None:
+            loss = raw.get("score")
+        if loss is None:
+            loss = raw.get("loss")
         metrics: dict[str, Any] = {
-            "experiment_success": result.returncode == 0 and score is not None,
+            "experiment_success": result.returncode == 0 and loss is not None,
             "ai_scientist_returncode": result.returncode,
         }
-        if score is not None:
-            metrics["primary_score"] = score
-            metrics["score"] = score
+        if loss is not None:
+            metrics["primary_score"] = round(1.0 / (1.0 + float(loss)), 6)
+            metrics["val_mse"] = float(loss)
         metrics.update({k: v for k, v in raw.items() if k not in metrics})
     else:
-        score = parse_results_score(combined_logs)
+        loss = parse_results_score(combined_logs)
         metrics = {
-            "experiment_success": result.returncode == 0 and score is not None,
+            "experiment_success": result.returncode == 0 and loss is not None,
             "ai_scientist_returncode": result.returncode,
         }
-        if score is not None:
-            metrics["primary_score"] = score
-            metrics["score"] = score
+        if loss is not None:
+            metrics["primary_score"] = round(1.0 / (1.0 + float(loss)), 6)
+            metrics["val_mse"] = float(loss)
+    if applied_knobs:
+        metrics["applied_knobs"] = applied_knobs
 
     hypothesis = f"{agent_id} direct TinyWorlds run (step {step})"
     plan = "Direct TinyWorlds harness invocation via canonical runfile.py."
@@ -193,6 +217,14 @@ def run_direct_tinyworlds_expansion(
     if revised_plan:
         plan = revised_plan[:500]
 
+    if applied_knobs:
+        diff_lines = [f"{key}={value}" for key, value in sorted(applied_knobs.items())]
+        code_diff = "TinyWorlds knob overrides (env):\n" + "\n".join(diff_lines) + "\n"
+        code_diff_summary = "Applied TinyWorlds knobs: " + ", ".join(diff_lines)
+    else:
+        code_diff = ""
+        code_diff_summary = "Direct TinyWorlds execution — baseline configuration, no knob change."
+
     expansion = {
         "metrics": metrics,
         "logs": combined_logs,
@@ -200,11 +232,12 @@ def run_direct_tinyworlds_expansion(
         "experiment_plan": plan,
         "analysis": f"score={metrics.get('primary_score', 'N/A')}  val_mse={metrics.get('val_mse', 'N/A')}",
         "proposed_next_experiment": "Vary TinyWorlds depth or model_type under same time budget.",
-        "code_diff": "",
-        "code_diff_summary": "Direct TinyWorlds execution — no code modification in this step.",
+        "code_diff": code_diff,
+        "code_diff_summary": code_diff_summary,
         "workspace_path": str(data_dir),
         "artifact_paths": [str(run_root)],
         "ai_scientist_node": {},
+        "applied_knobs": applied_knobs,
     }
     write_json(run_root / "branch_expansion.json", expansion)
     return expansion
@@ -219,6 +252,7 @@ def run_ai_scientist_branch_expansion(
     seed: int,
     critique_context: str | None,
     revised_plan: str | None = None,
+    knob_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run one branch expansion step.
 
@@ -226,11 +260,14 @@ def run_ai_scientist_branch_expansion(
     calls run_direct_tinyworlds_expansion to bypass BFTS code generation and run
     the canonical TinyWorlds harness directly.  Set ai_scientist_use_bfts: true in
     the config only when the LLM reliably follows the seeded template.
+
+    knob_overrides (Tier-1) carries the critique-driven TW_* configuration for step 2.
     """
     use_bfts = bool(config["experiment"].get("ai_scientist_use_bfts", False))
     if not use_bfts:
         return run_direct_tinyworlds_expansion(
-            artifact_dir, agent_id, branch_id, step, config, seed, critique_context, revised_plan
+            artifact_dir, agent_id, branch_id, step, config, seed, critique_context,
+            revised_plan, knob_overrides
         )
 
     ai_dir = require_path(config["paths"].get("ai_scientist_v2_dir"), "AI-Scientist-v2")

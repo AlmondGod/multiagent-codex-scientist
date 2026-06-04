@@ -14,6 +14,7 @@ from commsci.ai_scientist_v2_wrapper import (
     run_reviewer,
 )
 from commsci.ai_scientist_runner import run_ai_scientist_branch_expansion
+from commsci.tinyworlds_knobs import allowlist_from_config, select_knobs, summarize_knobs
 from commsci.artifacts import (
     agent_artifact_dir,
     agent_workspace_dir,
@@ -241,7 +242,21 @@ Critique:
     decision_response = client.complete(decision_prompt, condition, artifact_dir, "decision_change")
     decision = parse_decision(decision_response.text)
     revised_plan = decision["revised_experiment_plan"]
+    if not isinstance(revised_plan, str):
+        revised_plan = json.dumps(revised_plan, indent=2)
     write_text(artifact_dir / "experiment_plan_2.md", revised_plan + "\n")
+    knob_overrides: dict[str, str] = {}
+    if use_ai_scientist_runner(config, dry_run):
+        allowlist = allowlist_from_config(config)
+        knob_overrides, applied_knobs, dropped_knobs = select_knobs(
+            client, critique, revised_plan, allowlist, condition, artifact_dir
+        )
+        decision["applied_knobs"] = applied_knobs
+        write_json(
+            artifact_dir / "applied_knobs.json",
+            {"applied": applied_knobs, "env": knob_overrides, "dropped": dropped_knobs},
+        )
+        write_text(artifact_dir / "applied_knobs.md", summarize_knobs(applied_knobs) + "\n")
     try:
         if use_ai_scientist_runner(config, dry_run):
             expansion = run_ai_scientist_branch_expansion(
@@ -253,6 +268,7 @@ Critique:
                 seed=seed,
                 critique_context=critique,
                 revised_plan=revised_plan,
+                knob_overrides=knob_overrides,
             )
             metrics2, logs2 = expansion["metrics"], expansion["logs"]
             if expansion.get("code_diff"):
