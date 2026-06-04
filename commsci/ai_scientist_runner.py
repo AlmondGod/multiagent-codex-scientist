@@ -114,8 +114,9 @@ def prepare_ai_scientist_data_dir(config: dict[str, Any], run_root: Path) -> Pat
             prepared,
             ignore=shutil.ignore_patterns(
                 ".git", "__pycache__", ".venv",
+                "data",  # excluded from copy and symlinked below; avoids copying multi-GB datasets per run
                 "runs", "results", "working", "checkpoints", "wandb",
-                "*.pt", "*.pth", "*.ckpt",
+                "*.pt", "*.pth", "*.ckpt", "*.h5",
             ),
             dirs_exist_ok=True,
         )
