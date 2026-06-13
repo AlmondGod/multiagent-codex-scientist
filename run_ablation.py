@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -152,6 +153,7 @@ def main() -> int:
         for agent_index in range(num_agents):
             run_agent_first_step(output_dir, args.condition, agent_index, run_id, roles, config, args.dry_run, seed)
     if use_codex_scientist_runner(config, args.dry_run):
+        wait_for_codex_live_overrides(output_dir, args.condition, num_agents, seed, config)
         run_codex_critique_round(
             output_dir=output_dir,
             condition=args.condition,
@@ -189,6 +191,96 @@ def main() -> int:
     aggregate_run(output_dir)
     print(f"Completed {args.condition} run in {output_dir}")
     return 0
+
+
+def wait_for_codex_live_overrides(
+    output_dir: Path,
+    condition: str,
+    num_agents: int,
+    seed: int,
+    config: dict[str, Any],
+) -> None:
+    experiment = config.get("experiment", {})
+    if not experiment.get("codex_scientist_wait_for_live_overrides"):
+        return
+    required = expected_live_override_paths(condition, num_agents, seed, experiment)
+    if not required:
+        return
+    timeout = float(experiment.get("codex_scientist_live_override_timeout_seconds", 1800))
+    poll = float(experiment.get("codex_scientist_live_override_poll_seconds", 5))
+    deadline = time.monotonic() + timeout
+    marker = ensure_dir(output_dir / "global") / f"waiting_for_live_overrides_{condition}.json"
+    write_json(
+        marker,
+        {
+            "condition": condition,
+            "started_at": utc_now(),
+            "required": {name: [str(path) for path in alternatives] for name, alternatives in required.items()},
+        },
+    )
+    print(f"Waiting for live Codex override artifacts for {condition}. Marker: {marker}", flush=True)
+    while True:
+        missing = {
+            name: alternatives
+            for name, alternatives in required.items()
+            if not any(path.exists() for path in alternatives)
+        }
+        if not missing:
+            write_json(
+                marker,
+                {
+                    "condition": condition,
+                    "completed_at": utc_now(),
+                    "status": "ready",
+                    "required": {name: [str(path) for path in alternatives] for name, alternatives in required.items()},
+                },
+            )
+            print(f"Live Codex override artifacts are ready for {condition}.", flush=True)
+            return
+        if time.monotonic() >= deadline:
+            missing_text = "\n".join(
+                f"{name}: one of {[str(path) for path in alternatives]}"
+                for name, alternatives in sorted(missing.items())
+            )
+            raise TimeoutError(f"Timed out waiting for live Codex overrides:\n{missing_text}")
+        print(f"Still waiting for {len(missing)} live override groups for {condition}.", flush=True)
+        time.sleep(max(1.0, poll))
+
+
+def expected_live_override_paths(
+    condition: str,
+    num_agents: int,
+    seed: int,
+    experiment: dict[str, Any],
+) -> dict[str, list[Path]]:
+    required: dict[str, list[Path]] = {}
+    action_override_dir = experiment.get("codex_scientist_action_overrides_dir")
+    critique_override_dir = experiment.get("codex_scientist_critique_overrides_dir")
+    decision_override_dir = experiment.get("codex_scientist_decision_overrides_dir")
+    action_dir = Path(str(action_override_dir)).expanduser() if action_override_dir else None
+    critique_dir = Path(str(critique_override_dir)).expanduser() if critique_override_dir else None
+    decision_dir = Path(str(decision_override_dir)).expanduser() if decision_override_dir else None
+    del seed  # Role assignment is encoded in critic prompts; filenames stay condition/agent based.
+    for idx in range(num_agents):
+        target_id = f"agent_{idx}"
+        critic_id = target_id if condition == "self_critique" or num_agents == 1 else f"agent_{(idx + 1) % num_agents}"
+        if critique_dir:
+            required[f"{target_id}_critique"] = [
+                critique_dir / f"{target_id}_critique{suffix}" for suffix in (".json", ".md", ".txt")
+            ] + [
+                critique_dir / f"{critic_id}_to_{target_id}{suffix}" for suffix in (".json", ".md", ".txt")
+            ] + [
+                critique_dir / f"{condition}_{target_id}_critique{suffix}" for suffix in (".json", ".md", ".txt")
+            ]
+        if decision_dir:
+            required[f"{target_id}_decision"] = [
+                decision_dir / f"{target_id}_decision{suffix}" for suffix in (".json", ".md", ".txt")
+            ] + [
+                decision_dir / f"{target_id}_step_2_decision{suffix}" for suffix in (".json", ".md", ".txt")
+            ]
+        if action_dir:
+            required[f"{target_id}_step_2_action"] = [action_dir / f"{target_id}_step_2.json"]
+    return required
 
 
 def run_codex_agent_steps_parallel(

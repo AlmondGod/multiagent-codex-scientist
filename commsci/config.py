@@ -75,6 +75,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "codex_scientist_action_overrides_dir": None,
         "codex_scientist_critique_overrides_dir": None,
         "codex_scientist_decision_overrides_dir": None,
+        "codex_scientist_wait_for_live_overrides": False,
+        "codex_scientist_live_override_timeout_seconds": 1800,
+        "codex_scientist_live_override_poll_seconds": 5,
     },
     "paths": {
         "tinyworlds_dir": None,
