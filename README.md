@@ -237,6 +237,34 @@ the run artifacts so a supervising Codex session can assign those exact node
 tasks to live subagents. Until a noninteractive Codex backend exists, live
 subagent authorship enters the CLI through these override files.
 
+Action overrides may now include one curated source patch recipe in addition to
+validated TinyWorlds knobs. These recipes are intentionally bounded: the
+coordinator applies them only inside each per-node isolated TinyWorlds workspace,
+writes `patch_result.json` and `code_diff.patch`, and never modifies the
+original TinyWorlds checkout. This lets live Codex workers test architecture or
+training-loop ideas without opening the action space to arbitrary repository
+edits.
+
+Supported patch recipes:
+
+- `baseline_no_patch`: no source edit; use knobs only.
+- `dynamics_first_schedule`: enter action/dynamics training phases earlier in short runs.
+- `action_grad_dynamics`: allow action-tokenizer gradients during dynamics training.
+- `smooth_l1_dynamics_pixel`: use smooth-L1 for dynamics pixel reconstruction.
+- `sharpen_change_weights`: focus patch-change weights more strongly on changing patches.
+- `full_budget_action_supervision`: keep action supervision active for the whole budget when enabled.
+
+Example action override with a code recipe:
+
+```json
+{
+  "recipe_id": "agent_0_step_2_robust_dynamics_loss",
+  "patch_recipe_id": "smooth_l1_dynamics_pixel",
+  "knobs": {"dynamics_pixel_loss_weight": 1.0},
+  "rationale": "Test whether a robust reconstruction loss improves short-budget dynamics learning."
+}
+```
+
 Run self-critique first:
 
 ```bash
@@ -275,6 +303,8 @@ Every Codex-Scientist node writes:
 - `memory.md`
 - `metrics.json`
 - `logs.txt`
+- `patch_result.json`
+- `code_diff.patch` when a source patch recipe changed files
 - `branch_expansion.json`
 
 The top-level agent artifacts remain compatible with aggregation.

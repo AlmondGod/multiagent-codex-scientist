@@ -5,6 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 
+from commsci.codex_scientist.actions import apply_patch_recipe, normalize_action
 from commsci.codex_scientist.checks import check_artifact_completeness, check_metrics_fixture
 from commsci.codex_scientist.communication import load_critique_override, load_decision_override
 from commsci.codex_scientist.schemas import CodexNode
@@ -62,6 +63,26 @@ def main() -> int:
         assert critique and critique["critique"] == "Live Codex critique"
         decision = load_decision_override(config, "agent_0")
         assert decision and "paired step-2 action" in decision["revised_experiment_plan"]
+        (tmp_path / "models.py").write_text(
+            "import torch.nn.functional as F\n\n"
+            "def loss(pred, target):\n"
+            "        return F.mse_loss(pred[:, 0], target)\n",
+            encoding="utf-8",
+        )
+        action = normalize_action(
+            {
+                "recipe_id": "smooth_l1_probe",
+                "patch_recipe_id": "smooth_l1_dynamics_pixel",
+                "rationale": "Probe a robust dynamics reconstruction loss.",
+            },
+            config,
+            "fallback_recipe",
+        )
+        patch_result = apply_patch_recipe(tmp_path, action)
+        assert patch_result["patch_applied"] is True
+        assert patch_result["changed_files"] == ["models.py"]
+        assert "smooth_l1_loss" in (tmp_path / "models.py").read_text(encoding="utf-8")
+        assert "smooth_l1_loss" in patch_result["code_diff"]
     print("codex_scientist checks passed")
     return 0
 

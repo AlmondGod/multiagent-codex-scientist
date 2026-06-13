@@ -41,6 +41,10 @@ You are a live Codex node worker in a supervised tree-search science run.
 - Keep the compute budget fixed.
 - Save metrics from `working/metrics.json`.
 - Record all changes as validated knobs or curated patch recipes.
+- Curated patch recipes are allowed when assigned in the action JSON. Available
+  recipe ids are: `baseline_no_patch`, `dynamics_first_schedule`,
+  `action_grad_dynamics`, `smooth_l1_dynamics_pixel`,
+  `sharpen_change_weights`, and `full_budget_action_supervision`.
 
 ## Visible Memory
 {format_memory(memory)}

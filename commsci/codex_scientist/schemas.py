@@ -48,4 +48,5 @@ REQUIRED_NODE_ARTIFACTS = [
     "memory.md",
     "metrics.json",
     "logs.txt",
+    "patch_result.json",
 ]

@@ -9,7 +9,7 @@ from typing import Any
 
 from commsci.artifacts import ensure_dir, utc_now, write_json, write_text
 
-from .actions import action_diff, action_summary, initial_action, normalize_action, revise_action
+from .actions import action_diff, action_summary, apply_patch_recipe, initial_action, normalize_action, revise_action
 from .prompts import worker_task_prompt
 from .schemas import CodexNode
 from .workspace import prepare_node_workspace
@@ -48,7 +48,14 @@ def run_codex_scientist_branch_expansion(
             if step > 1
             else initial_action(agent_index, config)
         )
+    patch_result = apply_patch_recipe(workspace, action)
+    action["patch_result"] = patch_result
+    if patch_result.get("code_diff"):
+        action["code_diff"] = patch_result["code_diff"]
     write_json(node_root / "action.json", action)
+    write_json(node_root / "patch_result.json", patch_result)
+    if patch_result.get("code_diff"):
+        write_text(node_root / "code_diff.patch", patch_result["code_diff"])
     prompt = worker_task_prompt(
         node_id=node_id,
         parent_id=parent_id,
