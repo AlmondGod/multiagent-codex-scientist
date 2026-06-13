@@ -160,6 +160,118 @@ python3 run_ablation.py \
   --seed 0
 ```
 
+## Codex-Scientist Live Multi-Agent Smoke
+
+`configs/a100_codex_scientist_smoke.yaml` opts into `experiment.runner: codex_scientist`.
+This path is the first scaffold for a Codex-Scientist fork: AI-Scientist-v2 remains
+a reference for tree-search concepts, but the runtime does not depend on
+AI-Scientist-v2's LLM/code-generation loop. Each tree node gets an isolated
+TinyWorlds workspace, a canonical `runfile.py`, node-local memory, selected
+TinyWorlds action metadata, execution logs, metrics, and a `node.json`.
+For multi-agent conditions, the main coordinator launches node experiments for
+each step concurrently up to `experiment.codex_scientist_parallel_workers`, so
+workers can explore tree nodes in parallel while artifacts stay centralized.
+For supervised live-agent runs, spawned Codex subagents can choose node actions,
+write critiques, and select the second-step action through override artifact
+directories. The coordinator validates action choices against the TinyWorlds
+knob allowlist before execution.
+
+Action override files live in `experiment.codex_scientist_action_overrides_dir`:
+
+```text
+agent_0_step_1.json
+agent_1_step_1.json
+agent_0_step_2.json
+agent_1_step_2.json
+```
+
+Each action file is JSON:
+
+```json
+{
+  "recipe_id": "agent_0_step_2_action_conditioning",
+  "knobs": {"use_env_actions": 1, "action_supervision_weight": 0.5},
+  "rationale": "Live Codex worker selected a controlled action-conditioning follow-up."
+}
+```
+
+Critique override files live in
+`experiment.codex_scientist_critique_overrides_dir`. The coordinator accepts
+plain `.md`/`.txt` critique text or structured JSON. Supported names include:
+
+```text
+agent_0_critique.md
+agent_1_to_agent_0.json
+peer_critique_agent_0_critique.txt
+```
+
+Structured critique JSON can include:
+
+```json
+{
+  "author_id": "agent_1",
+  "target_id": "agent_0",
+  "critique": "The first branch needs a controlled action-conditioning follow-up...",
+  "recommended_next_action": "Set use_env_actions=1 and action_supervision_weight=0.5.",
+  "backend": "live_codex_subagent"
+}
+```
+
+Decision override files live in
+`experiment.codex_scientist_decision_overrides_dir` and are named
+`agent_0_decision.json` or `agent_0_step_2_decision.json`. They may include
+`decision_changed`, `change_type`, `reason`, and `revised_experiment_plan`.
+If no live Codex override exists, the CLI falls back to bounded local
+Codex-Scientist critique/decision logic so unattended smoke runs still work.
+
+The current reusable CLI implementation is the durable artifact contract for
+supervised live Codex operation. It writes worker and critic task prompts under
+the run artifacts so a supervising Codex session can assign those exact node
+tasks to live subagents. Until a noninteractive Codex backend exists, live
+subagent authorship enters the CLI through these override files.
+
+Run self-critique first:
+
+```bash
+python3 run_ablation.py \
+  --condition self_critique \
+  --num_agents 1 \
+  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
+  --output_dir runs/a100_codex_self_smoke \
+  --config configs/a100_codex_scientist_smoke.yaml \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+If self passes, run the 2-agent peer smoke and stop:
+
+```bash
+python3 run_ablation.py \
+  --condition peer_critique \
+  --num_agents 2 \
+  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
+  --output_dir runs/a100_codex_peer_smoke \
+  --config configs/a100_codex_scientist_smoke.yaml \
+  --max_runtime_minutes_per_experiment 10 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+Every Codex-Scientist node writes:
+
+- `codex_scientist/nodes/{node_id}/node.json`
+- `action.json`
+- `worker_task.md`
+- `memory.md`
+- `metrics.json`
+- `logs.txt`
+- `branch_expansion.json`
+
+The top-level agent artifacts remain compatible with aggregation.
+
 ## Aggregation
 
 ```bash
@@ -196,6 +308,7 @@ Each agent writes:
 - `research_note.md`
 - `review.json`
 - `metadata.json`
+- `artifact_completeness.json` for Codex-Scientist runs
 
 Workspaces are isolated under:
 

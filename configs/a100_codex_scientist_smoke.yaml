@@ -1,0 +1,56 @@
+base_system:
+  repo_url: "https://github.com/SakanaAI/AI-Scientist-v2"
+  use_existing_tree_search: false
+  use_existing_reviewer: false
+  write_full_paper: false
+  reviewer_enabled: true
+  reviewer_backend: "codex_scientist_local"
+  reviewer_model: "supervised_codex_artifact_rubric"
+  reviewer_model_url: null
+
+model:
+  backend: "local_codex_scientist"
+  model_url: "http://127.0.0.1:11434/v1"
+  default_model: "codex-scientist-local"
+  temperature: 0.2
+  max_prompt_tokens: 6000
+  max_completion_tokens: 1000
+  mock_model: true
+
+compute:
+  reduced_mode: true
+  num_agents: 1
+  max_depth_per_agent: 2
+  max_experiments_per_agent: 2
+  max_total_experiments: 4
+  max_training_steps: 100
+  max_runtime_minutes_per_experiment: 10
+  max_tokens_per_critique: 1000
+
+experiment:
+  substrate: "TinyWorlds"
+  runner: "codex_scientist"
+  conditions:
+    - "self_critique"
+    - "peer_critique"
+  task_spec: "Improve TinyWorlds world-model quality under a fixed small compute budget."
+  ai_scientist_data_dir: "/workspace/tinyworlds-autoresearch"
+  codex_scientist_backend: "supervised_thread_tools"
+  codex_scientist_time_budget_seconds: 100
+  codex_scientist_timeout_seconds: 600
+  codex_scientist_parallel_workers: 2
+  codex_scientist_shared_memory: false
+  codex_scientist_action_overrides_dir: null
+  codex_scientist_critique_overrides_dir: null
+  codex_scientist_decision_overrides_dir: null
+  tinyworlds_baseline_knobs:
+    TW_DATASET: "minigrid"
+    TW_DEPTH: "1"
+  allowed_files:
+    - "train.py"
+    - "models.py"
+  forbidden_files:
+    - "setup.py"
+    - "data/"
+    - "results/"
+  primary_metric: "primary_score"

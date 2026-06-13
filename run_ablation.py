@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,13 @@ from commsci.ai_scientist_v2_wrapper import (
     run_reviewer,
 )
 from commsci.ai_scientist_runner import run_ai_scientist_branch_expansion
+from commsci.codex_scientist import (
+    codex_decision,
+    codex_reviewer,
+    run_codex_critique_round,
+    run_codex_scientist_branch_expansion,
+)
+from commsci.codex_scientist.communication import check_artifact_completeness
 from commsci.tinyworlds_knobs import (
     allowlist_from_config,
     initial_knobs_for_agent,
@@ -72,7 +80,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval_command", default=None)
     parser.add_argument("--dataset_config_path", default=None)
     parser.add_argument("--primary_metric", default=None)
-    parser.add_argument("--runner", choices=["tinyworlds_command", "ai_scientist_v2"], default=None)
+    parser.add_argument("--runner", choices=["tinyworlds_command", "ai_scientist_v2", "codex_scientist"], default=None)
     parser.add_argument("--ai_scientist_data_dir", default=None)
     parser.add_argument("--ai_scientist_config_template", default=None)
     parser.add_argument("--ai_scientist_code_model", default=None)
@@ -94,7 +102,11 @@ def main() -> int:
     seed = int(config["model"]["seed"])
     run_id = output_dir.name
     roles = assign_roles(num_agents, seed)
-    ai_status = ensure_ai_scientist_v2(config, args.dry_run)
+    ai_status = (
+        {"status": "not_required", "path": config["paths"].get("ai_scientist_v2_dir")}
+        if use_codex_scientist_runner(config, args.dry_run)
+        else ensure_ai_scientist_v2(config, args.dry_run)
+    )
     client = OpenAICompatibleClient(
         model_url=config["model"]["model_url"],
         model_name=config["model"]["default_model"],
@@ -123,22 +135,112 @@ def main() -> int:
             "environment": environment_info(),
         },
     )
-    for agent_index in range(num_agents):
-        run_agent_first_step(output_dir, args.condition, agent_index, run_id, roles, config, args.dry_run, seed)
-    run_critique_round(
-        output_dir=output_dir,
-        condition=args.condition,
-        num_agents=num_agents,
-        seed=seed,
-        max_prompt_tokens=int(config["model"]["max_prompt_tokens"]),
-        client=client,
-        roles=roles,
-    )
-    for agent_index in range(num_agents):
-        run_agent_second_step(output_dir, args.condition, agent_index, config, args.dry_run, seed, client)
+    if use_codex_scientist_runner(config, args.dry_run):
+        run_codex_agent_steps_parallel(
+            step=1,
+            output_dir=output_dir,
+            condition=args.condition,
+            num_agents=num_agents,
+            run_id=run_id,
+            roles=roles,
+            config=config,
+            dry_run=args.dry_run,
+            seed=seed,
+            client=client,
+        )
+    else:
+        for agent_index in range(num_agents):
+            run_agent_first_step(output_dir, args.condition, agent_index, run_id, roles, config, args.dry_run, seed)
+    if use_codex_scientist_runner(config, args.dry_run):
+        run_codex_critique_round(
+            output_dir=output_dir,
+            condition=args.condition,
+            num_agents=num_agents,
+            seed=seed,
+            config=config,
+            roles=roles,
+        )
+    else:
+        run_critique_round(
+            output_dir=output_dir,
+            condition=args.condition,
+            num_agents=num_agents,
+            seed=seed,
+            max_prompt_tokens=int(config["model"]["max_prompt_tokens"]),
+            client=client,
+            roles=roles,
+        )
+    if use_codex_scientist_runner(config, args.dry_run):
+        run_codex_agent_steps_parallel(
+            step=2,
+            output_dir=output_dir,
+            condition=args.condition,
+            num_agents=num_agents,
+            run_id=run_id,
+            roles=roles,
+            config=config,
+            dry_run=args.dry_run,
+            seed=seed,
+            client=client,
+        )
+    else:
+        for agent_index in range(num_agents):
+            run_agent_second_step(output_dir, args.condition, agent_index, config, args.dry_run, seed, client)
     aggregate_run(output_dir)
     print(f"Completed {args.condition} run in {output_dir}")
     return 0
+
+
+def run_codex_agent_steps_parallel(
+    *,
+    step: int,
+    output_dir: Path,
+    condition: str,
+    num_agents: int,
+    run_id: str,
+    roles: dict[str, str],
+    config: dict[str, Any],
+    dry_run: bool,
+    seed: int,
+    client: OpenAICompatibleClient,
+) -> None:
+    max_workers = int(config["experiment"].get("codex_scientist_parallel_workers", num_agents))
+    max_workers = max(1, min(num_agents, max_workers))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {}
+        for agent_index in range(num_agents):
+            if step == 1:
+                future = pool.submit(
+                    run_agent_first_step,
+                    output_dir,
+                    condition,
+                    agent_index,
+                    run_id,
+                    roles,
+                    config,
+                    dry_run,
+                    seed,
+                )
+            elif step == 2:
+                future = pool.submit(
+                    run_agent_second_step,
+                    output_dir,
+                    condition,
+                    agent_index,
+                    config,
+                    dry_run,
+                    seed,
+                    client,
+                )
+            else:
+                raise ValueError(f"Unsupported Codex-Scientist step {step}")
+            futures[future] = agent_index
+        for future in as_completed(futures):
+            agent_index = futures[future]
+            try:
+                future.result()
+            except Exception as exc:
+                raise RuntimeError(f"Codex-Scientist agent_{agent_index} step {step} failed") from exc
 
 
 def run_agent_first_step(
@@ -154,12 +256,17 @@ def run_agent_first_step(
     agent_id = f"agent_{agent_index}"
     artifact_dir = ensure_dir(agent_artifact_dir(output_dir, condition, agent_id))
     workspace_dir = agent_workspace_dir(output_dir, condition, agent_id)
-    workspace_mode = "ai_scientist_v2" if use_ai_scientist_runner(config, dry_run) else prepare_agent_workspace(
-        config["paths"].get("tinyworlds_dir"),
-        workspace_dir,
-        dry_run,
-        f"commsci-{condition}-{agent_id}",
-    )
+    if use_codex_scientist_runner(config, dry_run):
+        workspace_mode = "codex_scientist"
+    elif use_ai_scientist_runner(config, dry_run):
+        workspace_mode = "ai_scientist_v2"
+    else:
+        workspace_mode = prepare_agent_workspace(
+            config["paths"].get("tinyworlds_dir"),
+            workspace_dir,
+            dry_run,
+            f"commsci-{condition}-{agent_id}",
+        )
     write_config(artifact_dir / "config.yaml", config)
     ensure_dir(artifact_dir / "prompts")
     ensure_dir(artifact_dir / "completions")
@@ -177,7 +284,21 @@ def run_agent_first_step(
             {"applied": initial_applied, "env": initial_env, "dropped": initial_dropped},
         )
     try:
-        if use_ai_scientist_runner(config, dry_run):
+        if use_codex_scientist_runner(config, dry_run):
+            expansion = run_codex_scientist_branch_expansion(
+                artifact_dir=artifact_dir,
+                agent_id=agent_id,
+                branch_id=f"{condition}_{agent_id}",
+                step=1,
+                config=config,
+                seed=seed,
+                critique_context=None,
+            )
+            metrics1, logs1 = expansion["metrics"], expansion["logs"]
+            hypothesis = expansion.get("hypothesis") or hypothesis
+            plan1 = expansion.get("experiment_plan") or plan1
+            workspace_dir = Path(expansion.get("workspace_path") or workspace_dir)
+        elif use_ai_scientist_runner(config, dry_run):
             expansion = run_ai_scientist_branch_expansion(
                 artifact_dir=artifact_dir,
                 agent_id=agent_id,
@@ -255,8 +376,14 @@ Return JSON with decision_changed, change_type, reason, and revised_experiment_p
 Critique:
 {critique}
 """
-    decision_response = client.complete(decision_prompt, condition, artifact_dir, "decision_change")
-    decision = parse_decision(decision_response.text)
+    if use_codex_scientist_runner(config, dry_run):
+        metrics1_for_decision = json.loads((artifact_dir / "metrics_experiment_1.json").read_text(encoding="utf-8"))
+        decision = codex_decision(critique, metrics1_for_decision, config, agent_id)
+        write_text(artifact_dir / "prompts" / "decision_change.txt", decision_prompt)
+        write_text(artifact_dir / "completions" / "decision_change.txt", json.dumps(decision, indent=2))
+    else:
+        decision_response = client.complete(decision_prompt, condition, artifact_dir, "decision_change")
+        decision = parse_decision(decision_response.text)
     revised_plan = decision["revised_experiment_plan"]
     if not isinstance(revised_plan, str):
         revised_plan = json.dumps(revised_plan, indent=2)
@@ -291,7 +418,23 @@ Critique:
         )
         write_text(artifact_dir / "applied_knobs.md", summarize_knobs(applied_knobs) + "\n")
     try:
-        if use_ai_scientist_runner(config, dry_run):
+        if use_codex_scientist_runner(config, dry_run):
+            previous_action = read_latest_codex_action(artifact_dir, f"{condition}_{agent_id}", 1)
+            expansion = run_codex_scientist_branch_expansion(
+                artifact_dir=artifact_dir,
+                agent_id=agent_id,
+                branch_id=f"{condition}_{agent_id}",
+                step=2,
+                config=config,
+                seed=seed,
+                critique_context=critique,
+                revised_plan=revised_plan,
+                previous_action=previous_action,
+            )
+            metrics2, logs2 = expansion["metrics"], expansion["logs"]
+            if expansion.get("code_diff"):
+                write_text(artifact_dir / "git_diff.patch", expansion["code_diff"])
+        elif use_ai_scientist_runner(config, dry_run):
             expansion = run_ai_scientist_branch_expansion(
                 artifact_dir=artifact_dir,
                 agent_id=agent_id,
@@ -318,7 +461,11 @@ Critique:
     note = research_note(artifact_dir, decision, metrics1, metrics2, critique)
     note_path = artifact_dir / "research_note.md"
     write_text(note_path, note)
-    run_reviewer(note_path, artifact_dir / "review.json", dry_run, config)
+    if use_codex_scientist_runner(config, dry_run):
+        codex_reviewer(note_path, artifact_dir / "review.json")
+        write_json(artifact_dir / "artifact_completeness.json", check_artifact_completeness(artifact_dir))
+    else:
+        run_reviewer(note_path, artifact_dir / "review.json", dry_run, config)
 
 
 def summarize_diff(diff: str) -> str:
@@ -328,6 +475,15 @@ def summarize_diff(diff: str) -> str:
 
 def use_ai_scientist_runner(config: dict[str, Any], dry_run: bool) -> bool:
     return (not dry_run) and config["experiment"].get("runner") == "ai_scientist_v2"
+
+
+def use_codex_scientist_runner(config: dict[str, Any], dry_run: bool) -> bool:
+    return (not dry_run) and config["experiment"].get("runner") == "codex_scientist"
+
+
+def read_latest_codex_action(artifact_dir: Path, branch_id: str, step: int) -> dict[str, Any]:
+    path = artifact_dir / "codex_scientist" / "nodes" / f"{branch_id}_node_{step}" / "action.json"
+    return read_json(path) if path.exists() else {}
 
 
 def interpretation(metrics: dict[str, Any]) -> str:
