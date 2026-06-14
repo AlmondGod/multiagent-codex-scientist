@@ -25,12 +25,14 @@ def run_codex_critique_round(
         f"agent_{idx}": read_json(agent_artifact_dir(output_dir, condition, f"agent_{idx}") / "branch_summary.json")
         for idx in range(num_agents)
     }
+    population_summary = build_population_summary(summaries)
+    write_json(output_dir / condition / "population_summary_step_1.json", population_summary)
     for idx in range(num_agents):
         target_id = f"agent_{idx}"
         critic_id = target_id if condition == "self_critique" or num_agents == 1 else f"agent_{(idx + 1) % num_agents}"
         role = roles.get(critic_id) if condition == "peer_critique_with_roles" else None
         target_dir = agent_artifact_dir(output_dir, condition, target_id)
-        visible_context = build_visible_context(summaries, target_id, critic_id, condition)
+        visible_context = build_visible_context(summaries, target_id, critic_id, condition, config)
         prompt = critic_prompt(
             author_id=critic_id,
             target_summary=summaries[target_id],
@@ -69,6 +71,7 @@ def run_codex_critique_round(
                 "condition": condition,
                 "role": role,
                 "visible_context": visible_context,
+                "population_summary_step_1": population_summary if condition != "self_critique" else None,
                 "critique": critique,
                 "recommended_next_action": recommended_next_action,
                 "critique_backend": critique_backend,
@@ -95,6 +98,12 @@ def codex_decision(
         "input_received": critique,
         "decision_changed": True,
         "change_type": "debugged_code" if failed else "changed_hyperparameter",
+        "cultural_operator": "reject" if failed else "mutate",
+        "source_agent_ids": [agent_id] if agent_id else [],
+        "source_node_ids": [],
+        "copied_recipe_id": None,
+        "recombined_recipe_ids": [],
+        "rejected_recipe_id": None,
         "reason": (
             "First node failed, so the second node should use a simpler validated action."
             if failed
@@ -154,14 +163,46 @@ def build_visible_context(
     target_id: str,
     critic_id: str,
     condition: str,
+    config: dict[str, Any] | None = None,
 ) -> str:
     if condition == "self_critique":
         return "Self critique: critic sees only its own branch summary."
+    population_enabled = (config or {}).get("experiment", {}).get("codex_scientist_population_context", True)
+    population_text = ""
+    if population_enabled:
+        population_text = "Population step-1 scoreboard:\n" + json.dumps(
+            build_population_summary(summaries), indent=2, sort_keys=True
+        )[:3500] + "\n\n"
     if critic_id in summaries:
-        return "Peer critique: critic also knows its own first branch outcome:\n" + json.dumps(
+        return population_text + "Peer critique: critic also knows its own first branch outcome:\n" + json.dumps(
             summaries[critic_id], indent=2, sort_keys=True
         )[:2500]
-    return "Peer critique: no extra critic context was available."
+    return population_text + "Peer critique: no extra critic context was available."
+
+
+def build_population_summary(summaries: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for agent_id, summary in sorted(summaries.items()):
+        metrics = summary.get("metrics_experiment_1", {})
+        codex_node = summary.get("codex_node") or {}
+        action = codex_node.get("action") or summary.get("action") or {}
+        patch_recipe = (action.get("patch_recipe") or {}).get("id")
+        inheritance = action.get("inheritance") or {}
+        rows.append(
+            {
+                "agent_id": agent_id,
+                "branch_id": summary.get("branch_id"),
+                "node_id": codex_node.get("node_id"),
+                "primary_score": metrics.get("primary_score"),
+                "val_mse": metrics.get("val_mse"),
+                "experiment_success": metrics.get("experiment_success"),
+                "recipe_id": action.get("recipe_id"),
+                "patch_recipe_id": patch_recipe,
+                "knobs": action.get("knobs"),
+                "inheritance_mode": inheritance.get("mode"),
+            }
+        )
+    return sorted(rows, key=lambda row: row["primary_score"] if isinstance(row["primary_score"], (int, float)) else -1, reverse=True)
 
 
 def local_critique(summary: dict[str, Any], critic_id: str, role: str | None) -> str:
@@ -242,6 +283,12 @@ def normalize_decision_override(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "decision_changed": bool(raw.get("decision_changed", True)),
         "change_type": str(raw.get("change_type", "live_codex_selected_action")),
+        "cultural_operator": str(raw.get("cultural_operator", raw.get("inheritance_mode", "mutate"))),
+        "source_agent_ids": raw.get("source_agent_ids", []),
+        "source_node_ids": raw.get("source_node_ids", []),
+        "copied_recipe_id": raw.get("copied_recipe_id", raw.get("source_recipe_id")),
+        "recombined_recipe_ids": raw.get("recombined_recipe_ids", []),
+        "rejected_recipe_id": raw.get("rejected_recipe_id"),
         "reason": str(raw.get("reason", "Live Codex critic selected the second branch action.")),
         "revised_experiment_plan": plan,
         "recommended_next_action": raw.get("recommended_next_action"),

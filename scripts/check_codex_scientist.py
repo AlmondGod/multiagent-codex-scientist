@@ -73,6 +73,10 @@ def main() -> int:
             {
                 "recipe_id": "smooth_l1_probe",
                 "patch_recipe_id": "smooth_l1_dynamics_pixel",
+                "inheritance_mode": "copy",
+                "source_agent_id": "agent_1",
+                "source_node_id": "peer_critique_agent_1_node_1",
+                "copied_recipe_id": "agent_1_step_1",
                 "rationale": "Probe a robust dynamics reconstruction loss.",
             },
             config,
@@ -83,6 +87,9 @@ def main() -> int:
         assert patch_result["changed_files"] == ["models.py"]
         assert "smooth_l1_loss" in (tmp_path / "models.py").read_text(encoding="utf-8")
         assert "smooth_l1_loss" in patch_result["code_diff"]
+        assert action["inheritance"]["mode"] == "copy"
+        assert action["inheritance"]["source_agent_ids"] == ["agent_1"]
+        assert action["inheritance"]["source_node_ids"] == ["peer_critique_agent_1_node_1"]
     print("codex_scientist checks passed")
     return 0
 

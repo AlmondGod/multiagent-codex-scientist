@@ -47,6 +47,8 @@ PATCH_RECIPES: dict[str, dict[str, Any]] = {
     },
 }
 
+INHERITANCE_MODES = {"invent", "copy", "mutate", "recombine", "reject"}
+
 
 def initial_action(agent_index: int, config: dict[str, Any]) -> dict[str, Any]:
     allowlist = allowlist_from_config(config)
@@ -58,6 +60,12 @@ def initial_action(agent_index: int, config: dict[str, Any]) -> dict[str, Any]:
         "env": env,
         "dropped": dropped,
         "patch_recipe": PATCH_RECIPES["baseline_no_patch"],
+        "inheritance": {
+            "mode": "invent",
+            "source_agent_ids": [],
+            "source_node_ids": [],
+            "rationale": "Initial branch invention before any communication checkpoint.",
+        },
     }
 
 
@@ -66,6 +74,7 @@ def normalize_action(raw: dict[str, Any], config: dict[str, Any], recipe_id: str
     raw_knobs = raw.get("knobs", raw.get("env", raw)) if isinstance(raw, dict) else {}
     env, applied, dropped = validate_knobs(raw_knobs, allowlist)
     patch_recipe = normalize_patch_recipe(raw if isinstance(raw, dict) else {}, config)
+    inheritance = normalize_inheritance(raw if isinstance(raw, dict) else {}, default_mode="invent")
     return {
         "kind": "code_recipe" if patch_recipe["id"] != "baseline_no_patch" else "knob_recipe",
         "recipe_id": str(raw.get("recipe_id", recipe_id)) if isinstance(raw, dict) else recipe_id,
@@ -74,6 +83,7 @@ def normalize_action(raw: dict[str, Any], config: dict[str, Any], recipe_id: str
         "dropped": dropped,
         "subagent_rationale": raw.get("rationale", "") if isinstance(raw, dict) else "",
         "patch_recipe": patch_recipe,
+        "inheritance": inheritance,
     }
 
 
@@ -100,6 +110,12 @@ def revise_action(
         "critique_basis": critique[:1200],
         "revised_plan": revised_plan,
         "patch_recipe": PATCH_RECIPES["baseline_no_patch"],
+        "inheritance": {
+            "mode": "mutate",
+            "source_agent_ids": [f"agent_{agent_index}"],
+            "source_node_ids": [],
+            "rationale": "Local fallback revision mutates this worker's previous branch after critique.",
+        },
     }
 
 
@@ -128,6 +144,10 @@ def action_summary(action: dict[str, Any]) -> str:
         bits.append("knobs: " + json.dumps(knobs, sort_keys=True))
     if recipe != "baseline_no_patch":
         bits.append(f"patch_recipe: {recipe}")
+    inheritance = action.get("inheritance") or {}
+    mode = inheritance.get("mode")
+    if mode:
+        bits.append(f"inheritance: {mode}")
     if not bits:
         return "Codex-Scientist baseline TinyWorlds run; no source patch."
     return "Codex-Scientist " + "; ".join(bits)
@@ -156,6 +176,32 @@ def normalize_patch_recipe(raw: dict[str, Any], config: dict[str, Any]) -> dict[
             "dropped_patch_recipe": f"{recipe_id}: not an allowed patch recipe",
         }
     return dict(recipe)
+
+
+def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, Any]:
+    mode = str(raw.get("inheritance_mode", raw.get("cultural_operator", default_mode))).strip().lower()
+    if mode not in INHERITANCE_MODES:
+        mode = default_mode
+    source_agent_ids = raw.get("source_agent_ids", raw.get("source_agents", raw.get("source_agent_id", [])))
+    source_node_ids = raw.get("source_node_ids", raw.get("source_nodes", raw.get("source_node_id", [])))
+    if isinstance(source_agent_ids, str):
+        source_agent_ids = [source_agent_ids]
+    if isinstance(source_node_ids, str):
+        source_node_ids = [source_node_ids]
+    copied_recipe_id = raw.get("copied_recipe_id", raw.get("source_recipe_id"))
+    rejected_recipe_id = raw.get("rejected_recipe_id")
+    recombined_recipe_ids = raw.get("recombined_recipe_ids", [])
+    if isinstance(recombined_recipe_ids, str):
+        recombined_recipe_ids = [recombined_recipe_ids]
+    return {
+        "mode": mode,
+        "source_agent_ids": [str(item) for item in source_agent_ids],
+        "source_node_ids": [str(item) for item in source_node_ids],
+        "copied_recipe_id": str(copied_recipe_id) if copied_recipe_id is not None else None,
+        "recombined_recipe_ids": [str(item) for item in recombined_recipe_ids],
+        "rejected_recipe_id": str(rejected_recipe_id) if rejected_recipe_id is not None else None,
+        "rationale": str(raw.get("inheritance_rationale", raw.get("rationale", ""))),
+    }
 
 
 def apply_patch_recipe(workspace: Path, action: dict[str, Any]) -> dict[str, Any]:

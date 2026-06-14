@@ -40,6 +40,7 @@ experiment:
   codex_scientist_timeout_seconds: 600
   codex_scientist_parallel_workers: 2
   codex_scientist_shared_memory: false
+  codex_scientist_population_context: true
   codex_scientist_action_overrides_dir: null
   codex_scientist_critique_overrides_dir: null
   codex_scientist_decision_overrides_dir: null

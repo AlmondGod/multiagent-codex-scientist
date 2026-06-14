@@ -260,10 +260,29 @@ Example action override with a code recipe:
 {
   "recipe_id": "agent_0_step_2_robust_dynamics_loss",
   "patch_recipe_id": "smooth_l1_dynamics_pixel",
+  "inheritance_mode": "mutate",
+  "source_agent_ids": ["agent_0"],
+  "source_node_ids": ["peer_critique_agent_0_node_1"],
   "knobs": {"dynamics_pixel_loss_weight": 1.0},
   "rationale": "Test whether a robust reconstruction loss improves short-budget dynamics learning."
 }
 ```
+
+For cultural-evolution runs, every step-2 action should also declare its
+inheritance operator:
+
+- `copy`: reuse another worker's successful recipe.
+- `mutate`: alter one prior recipe.
+- `recombine`: combine two or more prior recipes.
+- `reject`: avoid a poor prior recipe and explain the replacement.
+- `invent`: introduce a new recipe not derived from visible branches.
+
+Peer conditions write `population_summary_step_1.json` and include a compact
+population scoreboard in critique prompts when
+`experiment.codex_scientist_population_context: true`. Aggregation records
+`cultural_operator`, source agents/nodes, copied/recombined/rejected recipes,
+and `cross_agent_transfer`, so the experiment can measure information transfer
+directly rather than only final score.
 
 Run self-critique first:
 

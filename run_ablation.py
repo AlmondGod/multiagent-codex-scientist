@@ -375,6 +375,7 @@ def run_agent_first_step(
             artifact_dir / "initial_knobs.json",
             {"applied": initial_applied, "env": initial_env, "dropped": initial_dropped},
         )
+    expansion = {}
     try:
         if use_codex_scientist_runner(config, dry_run):
             expansion = run_codex_scientist_branch_expansion(
@@ -436,6 +437,8 @@ def run_agent_first_step(
         "proposed_next_experiment": expansion.get("proposed_next_experiment") if expansion else propose_next_experiment(agent_index),
         "workspace_path": str(workspace_dir),
         "artifact_paths": [str(artifact_dir), *expansion.get("artifact_paths", [])] if expansion else [str(artifact_dir)],
+        "codex_node": expansion.get("codex_node") if expansion else None,
+        "action": expansion.get("action") if expansion else None,
     }
     write_json(artifact_dir / "branch_summary.json", summary)
     write_json(
@@ -509,6 +512,7 @@ Critique:
             },
         )
         write_text(artifact_dir / "applied_knobs.md", summarize_knobs(applied_knobs) + "\n")
+    expansion = {}
     try:
         if use_codex_scientist_runner(config, dry_run):
             previous_action = read_latest_codex_action(artifact_dir, f"{condition}_{agent_id}", 1)
@@ -546,6 +550,18 @@ Critique:
     except Exception as exc:
         metrics2, logs2 = {"experiment_success": False, "error": str(exc)}, str(exc)
     metrics1 = json.loads((artifact_dir / "metrics_experiment_1.json").read_text(encoding="utf-8"))
+    if expansion:
+        step2_action = expansion.get("action") or {}
+        inheritance = step2_action.get("inheritance") or {}
+        if inheritance:
+            decision["cultural_operator"] = inheritance.get("mode", decision.get("cultural_operator"))
+            decision["source_agent_ids"] = inheritance.get("source_agent_ids", decision.get("source_agent_ids", []))
+            decision["source_node_ids"] = inheritance.get("source_node_ids", decision.get("source_node_ids", []))
+            decision["copied_recipe_id"] = inheritance.get("copied_recipe_id", decision.get("copied_recipe_id"))
+            decision["recombined_recipe_ids"] = inheritance.get(
+                "recombined_recipe_ids", decision.get("recombined_recipe_ids", [])
+            )
+            decision["rejected_recipe_id"] = inheritance.get("rejected_recipe_id", decision.get("rejected_recipe_id"))
     decision["later_helped"], decision["evidence"] = helped_evidence(metrics1, metrics2, decision)
     write_json(artifact_dir / "decision_change.json", decision)
     write_json(artifact_dir / "metrics_experiment_2.json", metrics2)
@@ -606,6 +622,12 @@ def parse_decision(text: str) -> dict[str, Any]:
         "input_received": text,
         "decision_changed": bool(data.get("decision_changed", True)),
         "change_type": change_type,
+        "cultural_operator": data.get("cultural_operator", data.get("inheritance_mode")),
+        "source_agent_ids": data.get("source_agent_ids", []),
+        "source_node_ids": data.get("source_node_ids", []),
+        "copied_recipe_id": data.get("copied_recipe_id", data.get("source_recipe_id")),
+        "recombined_recipe_ids": data.get("recombined_recipe_ids", []),
+        "rejected_recipe_id": data.get("rejected_recipe_id"),
         "reason": data.get("reason", "Critique suggested a more controlled second experiment."),
         "revised_experiment_plan": data.get(
             "revised_experiment_plan",

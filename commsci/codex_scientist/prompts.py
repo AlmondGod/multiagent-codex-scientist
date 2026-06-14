@@ -70,6 +70,9 @@ condition: {condition}{role_text}
 
 You may only use the branch summary and visible context below. Produce a critique
 that can guide exactly one second branch expansion under the same TinyWorlds budget.
+When recommending a next action, classify the cultural operator as one of:
+`copy`, `mutate`, `recombine`, `reject`, or `invent`. Prefer explicit
+copy/mutate/recombine recommendations when visible peer outcomes justify them.
 
 ## Target Branch Summary
 ```json

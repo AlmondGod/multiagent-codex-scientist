@@ -35,6 +35,10 @@ def summarize_agent(condition: str, artifact_dir: Path) -> dict[str, Any]:
     metrics2 = read_json(artifact_dir / "metrics_experiment_2.json")
     decision = read_json(artifact_dir / "decision_change.json")
     review = read_json(artifact_dir / "review.json")
+    step1_action = read_codex_action(artifact_dir, 1)
+    step2_action = read_codex_action(artifact_dir, 2)
+    step2_inheritance = step2_action.get("inheritance", {}) if isinstance(step2_action, dict) else {}
+    step2_patch_recipe = patch_recipe_id(step2_action)
     primary1 = _num(metrics1.get("primary_score"))
     primary2 = _num(metrics2.get("primary_score"))
     improvement = None if primary1 is None or primary2 is None else primary2 - primary1
@@ -47,6 +51,15 @@ def summarize_agent(condition: str, artifact_dir: Path) -> dict[str, Any]:
         "communication_value": 1 if decision.get("decision_changed") and later_helped is True else 0,
         "metric_improvement": improvement,
         "final_metric_score": primary2,
+        "step1_patch_recipe_id": patch_recipe_id(step1_action),
+        "step2_patch_recipe_id": step2_patch_recipe,
+        "cultural_operator": step2_inheritance.get("mode") or decision.get("cultural_operator"),
+        "source_agent_ids": json.dumps(step2_inheritance.get("source_agent_ids", decision.get("source_agent_ids", []))),
+        "source_node_ids": json.dumps(step2_inheritance.get("source_node_ids", decision.get("source_node_ids", []))),
+        "copied_recipe_id": step2_inheritance.get("copied_recipe_id") or decision.get("copied_recipe_id"),
+        "recombined_recipe_ids": json.dumps(step2_inheritance.get("recombined_recipe_ids", decision.get("recombined_recipe_ids", []))),
+        "rejected_recipe_id": step2_inheritance.get("rejected_recipe_id") or decision.get("rejected_recipe_id"),
+        "cross_agent_transfer": cross_agent_transfer(branch["agent_id"], step2_inheritance, decision),
         "unsupported_claim_count": review.get("unsupported_claim_count"),
         "ablation_quality": review.get("ablation_quality"),
         "failure_avoidance": 1 if not metrics1.get("experiment_success") and metrics2.get("experiment_success") else 0,
@@ -73,6 +86,12 @@ def summarize_conditions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "communication_value": avg(row["communication_value"] for row in subset),
                 "metric_improvement": avg(row["metric_improvement"] for row in subset),
                 "final_metric_score": avg(row["final_metric_score"] for row in subset),
+                "copy_rate": operator_rate(subset, "copy"),
+                "mutate_rate": operator_rate(subset, "mutate"),
+                "recombine_rate": operator_rate(subset, "recombine"),
+                "reject_rate": operator_rate(subset, "reject"),
+                "invent_rate": operator_rate(subset, "invent"),
+                "cross_agent_transfer_rate": avg_bool(row["cross_agent_transfer"] for row in subset),
                 "unsupported_claim_count": avg(row["unsupported_claim_count"] for row in subset),
                 "duplicate_experiment_rate": avg(row["duplicate_experiment_rate"] for row in subset),
                 "ablation_quality": avg(row["ablation_quality"] for row in subset),
@@ -102,6 +121,10 @@ def write_outputs(run_dir: Path, rows: list[dict[str, Any]], condition_summaries
         lines.append(f"- fraction_later_helped: {summary['fraction_later_helped']}")
         lines.append(f"- communication_value: {summary['communication_value']}")
         lines.append(f"- final_metric_score: {summary['final_metric_score']}")
+        lines.append(f"- copy_rate: {summary['copy_rate']}")
+        lines.append(f"- mutate_rate: {summary['mutate_rate']}")
+        lines.append(f"- recombine_rate: {summary['recombine_rate']}")
+        lines.append(f"- cross_agent_transfer_rate: {summary['cross_agent_transfer_rate']}")
         lines.append(f"- reviewer_score: {summary['reviewer_score']}")
         lines.append("")
     write_text(run_dir / "summary.md", "\n".join(lines))
@@ -125,6 +148,34 @@ def duplicate_experiment_rate(summaries: list[dict[str, Any]]) -> float:
             if SequenceMatcher(None, texts[i], texts[j]).ratio() >= 0.82:
                 duplicates += 1
     return duplicates / pairs if pairs else 0.0
+
+
+def read_codex_action(artifact_dir: Path, step: int) -> dict[str, Any]:
+    node_root = artifact_dir / "codex_scientist" / "nodes"
+    matches = sorted(node_root.glob(f"*_node_{step}/action.json"))
+    if not matches:
+        return {}
+    return read_json(matches[-1])
+
+
+def patch_recipe_id(action: dict[str, Any]) -> str | None:
+    if not isinstance(action, dict):
+        return None
+    recipe = action.get("patch_recipe") or {}
+    return recipe.get("id") if isinstance(recipe, dict) else None
+
+
+def cross_agent_transfer(agent_id: str, inheritance: dict[str, Any], decision: dict[str, Any]) -> bool:
+    sources = inheritance.get("source_agent_ids") if isinstance(inheritance, dict) else None
+    if sources is None:
+        sources = decision.get("source_agent_ids", [])
+    if isinstance(sources, str):
+        sources = [sources]
+    return any(str(source) != agent_id for source in (sources or []))
+
+
+def operator_rate(rows: list[dict[str, Any]], operator: str) -> float:
+    return avg_bool(row.get("cultural_operator") == operator for row in rows)
 
 
 def token_sum(artifact_dir: Path, key: str) -> int | None:
