@@ -179,18 +179,30 @@ def normalize_patch_recipe(raw: dict[str, Any], config: dict[str, Any]) -> dict[
 
 
 def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, Any]:
-    mode = str(raw.get("inheritance_mode", raw.get("cultural_operator", default_mode))).strip().lower()
+    nested = raw.get("inheritance") if isinstance(raw.get("inheritance"), dict) else {}
+    mode = str(
+        raw.get(
+            "inheritance_mode",
+            raw.get("cultural_operator", raw.get("operator", nested.get("mode", default_mode))),
+        )
+    ).strip().lower()
     if mode not in INHERITANCE_MODES:
         mode = default_mode
-    source_agent_ids = raw.get("source_agent_ids", raw.get("source_agents", raw.get("source_agent_id", [])))
-    source_node_ids = raw.get("source_node_ids", raw.get("source_nodes", raw.get("source_node_id", [])))
+    source_agent_ids = raw.get(
+        "source_agent_ids",
+        raw.get("source_agents", raw.get("source_agent_id", nested.get("source_agent_ids", []))),
+    )
+    source_node_ids = raw.get(
+        "source_node_ids",
+        raw.get("source_nodes", raw.get("source_node_id", nested.get("source_node_ids", []))),
+    )
     if isinstance(source_agent_ids, str):
         source_agent_ids = [source_agent_ids]
     if isinstance(source_node_ids, str):
         source_node_ids = [source_node_ids]
-    copied_recipe_id = raw.get("copied_recipe_id", raw.get("source_recipe_id"))
-    rejected_recipe_id = raw.get("rejected_recipe_id")
-    recombined_recipe_ids = raw.get("recombined_recipe_ids", [])
+    copied_recipe_id = raw.get("copied_recipe_id", raw.get("source_recipe_id", nested.get("copied_recipe_id")))
+    rejected_recipe_id = raw.get("rejected_recipe_id", nested.get("rejected_recipe_id"))
+    recombined_recipe_ids = raw.get("recombined_recipe_ids", nested.get("recombined_recipe_ids", []))
     if isinstance(recombined_recipe_ids, str):
         recombined_recipe_ids = [recombined_recipe_ids]
     return {
@@ -200,7 +212,7 @@ def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, A
         "copied_recipe_id": str(copied_recipe_id) if copied_recipe_id is not None else None,
         "recombined_recipe_ids": [str(item) for item in recombined_recipe_ids],
         "rejected_recipe_id": str(rejected_recipe_id) if rejected_recipe_id is not None else None,
-        "rationale": str(raw.get("inheritance_rationale", raw.get("rationale", ""))),
+        "rationale": str(raw.get("inheritance_rationale", raw.get("rationale", nested.get("rationale", "")))),
     }
 
 
