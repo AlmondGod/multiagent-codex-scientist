@@ -138,39 +138,50 @@ copy/mutate/recombine decisions from the observed population summaries.
 
 ## Live-Authored Transfer Smoke
 
-Seed 6 tested that stronger claim in supervised form. Step 1 used the same fixed
-diverse inventions, then the run paused. Live Codex subagents inspected the
-step-1 artifacts and authored critique, decision, and step-2 action override
-files.
+Seeds 6 and 7 tested that stronger claim in supervised form. Step 1 used the
+same fixed diverse inventions, then the run paused. Live Codex subagents
+inspected the step-1 artifacts and authored critique, decision, and step-2
+action override files.
 
-Results:
+Aggregate over live-authored seeds 6 and 7:
 
 | Condition | Mean final score | Mean improvement | Cross-agent transfer |
 | --- | ---: | ---: | ---: |
-| `self_critique` | 0.969123 | 0.013166 | 0.000000 |
-| `peer_critique` | 0.981815 | 0.025201 | 1.000000 |
+| `self_critique` | 0.964458 | 0.012750 | 0.000000 |
+| `peer_critique` | 0.981078 | 0.026463 | 0.833333 |
+
+Per-seed peer advantage over self:
+
+| Seed | Peer - self |
+| ---: | ---: |
+| 6 | +0.012692 |
+| 7 | +0.020547 |
 
 Live peer choices:
 
-- Agent 0 copied agent 1's top-ranked `smooth_l1_dynamics_pixel` branch.
-- Agent 1 recombined its own smooth-L1 branch with agent 0's action-conditioning branch.
-- Agent 2 copied agent 1's top-ranked smooth-L1 branch.
+- Seed 6: agent 0 copied agent 1's top smooth-L1 branch, agent 1
+  recombined smooth-L1 with agent 0's action-conditioning branch, and agent 2
+  copied agent 1's smooth-L1 branch.
+- Seed 7: agent 0 copied agent 1's top smooth-L1 branch, agent 1 mutated its
+  own smooth-L1 branch, and agent 2 copied agent 1's smooth-L1 branch.
 
-All three live peer decisions improved their parent branch. The live self-control
-only improved one of three branches. This is still a single supervised seed, but
-it is qualitatively stronger than the preauthored runs because the peer transfer
-operators were selected after observing the population summary.
+All six live peer decisions improved their parent branch. Across the two
+self-control seeds, only three of six self-authored revisions improved their
+parent branch. This is still a small supervised sample, but it is qualitatively
+stronger than the preauthored runs because the peer transfer operators were
+selected after observing the population summary.
 
 ## Next Step
 
-The next experiment should keep the same lineage metrics but make the transfer
-decision live-authored:
+The next experiment should keep the same lineage metrics and run more
+live-authored transfer seeds:
 
 1. Step 1: run diverse inventions.
 2. Expose `population_summary_step_1.json` to live Codex critics.
 3. Require each step-2 action to choose `copy`, `mutate`, `recombine`, `reject`,
    or `invent` with source ids.
-4. Compare against the same self-only control over more seeds.
+4. Compare against the same self-only control over more seeds and/or longer
+   multi-generation runs.
 
 If live peer agents independently copy or recombine high-performing recipes and
 continue beating self, that would be substantially stronger evidence for
