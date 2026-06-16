@@ -250,6 +250,9 @@ def run_generation(
         for agent_index in range(num_agents):
             agent_id = f"agent_{agent_index}"
             artifact_dir = ensure_dir(condition_dir / agent_id / "artifacts")
+            if node_metrics_path(output_dir, agent_index, generation).exists():
+                print(f"Skipping {agent_id} generation {generation}; metrics already exist.", flush=True)
+                continue
             previous_action = read_action(output_dir, agent_index, generation) if generation > 0 else None
             future = pool.submit(
                 run_codex_scientist_branch_expansion,
@@ -270,6 +273,19 @@ def run_generation(
                 future.result()
             except Exception as exc:
                 raise RuntimeError(f"{agent_id} generation {generation} failed") from exc
+
+
+def node_metrics_path(output_dir: Path, agent_index: int, generation: int) -> Path:
+    return (
+        output_dir
+        / "cultural_evolution"
+        / f"agent_{agent_index}"
+        / "artifacts"
+        / "codex_scientist"
+        / "nodes"
+        / f"cultural_evolution_agent_{agent_index}_node_{generation + 1}"
+        / "metrics.json"
+    )
 
 
 def generation_context(output_dir: Path, generation: int) -> str | None:
