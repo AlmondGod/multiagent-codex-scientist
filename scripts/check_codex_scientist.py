@@ -90,6 +90,25 @@ def main() -> int:
         assert action["inheritance"]["mode"] == "copy"
         assert action["inheritance"]["source_agent_ids"] == ["agent_1"]
         assert action["inheritance"]["source_node_ids"] == ["peer_critique_agent_1_node_1"]
+        (tmp_path / "train.py").write_text("ALPHA = 1\n", encoding="utf-8")
+        edit_action = normalize_action(
+            {
+                "recipe_id": "direct_edit_probe",
+                "inheritance_mode": "invent",
+                "file_edits": [
+                    {
+                        "path": "train.py",
+                        "find": "ALPHA = 1\n",
+                        "replace": "ALPHA = 2\n",
+                    }
+                ],
+            },
+            {"experiment": {"allowed_files": ["train.py", "models.py"]}},
+            "fallback_recipe",
+        )
+        edit_result = apply_patch_recipe(tmp_path, edit_action)
+        assert edit_result["file_edits_applied"] == 1
+        assert "ALPHA = 2" in (tmp_path / "train.py").read_text(encoding="utf-8")
     print("codex_scientist checks passed")
     return 0
 

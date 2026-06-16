@@ -75,14 +75,16 @@ def normalize_action(raw: dict[str, Any], config: dict[str, Any], recipe_id: str
     env, applied, dropped = validate_knobs(raw_knobs, allowlist)
     patch_recipe = normalize_patch_recipe(raw if isinstance(raw, dict) else {}, config)
     inheritance = normalize_inheritance(raw if isinstance(raw, dict) else {}, default_mode="invent")
+    file_edits, dropped_file_edits = normalize_file_edits(raw if isinstance(raw, dict) else {}, config)
     return {
-        "kind": "code_recipe" if patch_recipe["id"] != "baseline_no_patch" else "knob_recipe",
+        "kind": "code_recipe" if patch_recipe["id"] != "baseline_no_patch" or file_edits else "knob_recipe",
         "recipe_id": str(raw.get("recipe_id", recipe_id)) if isinstance(raw, dict) else recipe_id,
         "knobs": applied,
         "env": env,
-        "dropped": dropped,
+        "dropped": [*dropped, *dropped_file_edits],
         "subagent_rationale": raw.get("rationale", "") if isinstance(raw, dict) else "",
         "patch_recipe": patch_recipe,
+        "file_edits": file_edits,
         "inheritance": inheritance,
     }
 
@@ -144,6 +146,9 @@ def action_summary(action: dict[str, Any]) -> str:
         bits.append("knobs: " + json.dumps(knobs, sort_keys=True))
     if recipe != "baseline_no_patch":
         bits.append(f"patch_recipe: {recipe}")
+    edits = action.get("file_edits") or []
+    if edits:
+        bits.append(f"file_edits: {len(edits)}")
     inheritance = action.get("inheritance") or {}
     mode = inheritance.get("mode")
     if mode:
@@ -216,16 +221,54 @@ def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, A
     }
 
 
+def normalize_file_edits(raw: dict[str, Any], config: dict[str, Any]) -> tuple[list[dict[str, str]], list[str]]:
+    raw_edits = raw.get("file_edits") or raw.get("edits") or []
+    if not isinstance(raw_edits, list):
+        return [], ["file_edits: expected list"]
+    allowed = config.get("experiment", {}).get("allowed_files") or ["train.py", "models.py"]
+    allowed_set = {str(item) for item in allowed}
+    edits: list[dict[str, str]] = []
+    dropped: list[str] = []
+    for index, edit in enumerate(raw_edits):
+        if not isinstance(edit, dict):
+            dropped.append(f"file_edits[{index}]: expected object")
+            continue
+        filename = str(edit.get("path", edit.get("file", ""))).strip()
+        find = edit.get("find", edit.get("old"))
+        replace = edit.get("replace", edit.get("new"))
+        if filename not in allowed_set:
+            dropped.append(f"file_edits[{index}].path={filename!r}: not allowed")
+            continue
+        if not isinstance(find, str) or not isinstance(replace, str) or not find:
+            dropped.append(f"file_edits[{index}]: find/replace must be non-empty strings")
+            continue
+        edits.append(
+            {
+                "path": filename,
+                "find": find,
+                "replace": replace,
+                "description": str(edit.get("description", "")),
+            }
+        )
+    return edits, dropped
+
+
 def apply_patch_recipe(workspace: Path, action: dict[str, Any]) -> dict[str, Any]:
     recipe = action.get("patch_recipe") or PATCH_RECIPES["baseline_no_patch"]
     recipe_id = recipe.get("id", "baseline_no_patch")
-    if recipe_id == "baseline_no_patch":
-        return {"patch_applied": False, "patch_recipe_id": recipe_id, "code_diff": ""}
+    file_edits = action.get("file_edits") or []
+    if recipe_id == "baseline_no_patch" and not file_edits:
+        return {"patch_applied": False, "patch_recipe_id": recipe_id, "file_edits_applied": 0, "code_diff": ""}
     before: dict[Path, str] = {}
     for filename in recipe.get("files", []):
         path = workspace / filename
         before[path] = path.read_text(encoding="utf-8")
-    if recipe_id == "dynamics_first_schedule":
+    for edit in file_edits:
+        path = workspace / edit["path"]
+        before.setdefault(path, path.read_text(encoding="utf-8"))
+    if recipe_id == "baseline_no_patch":
+        pass
+    elif recipe_id == "dynamics_first_schedule":
         replace_once(
             workspace / "train.py",
             '    if progress < 0.25:\n        return "tokenizer"\n    if progress < 0.45:\n        return "actions"\n    return "dynamics"\n',
@@ -262,6 +305,10 @@ def apply_patch_recipe(workspace: Path, action: dict[str, Any]) -> dict[str, Any
         )
     else:
         raise ValueError(f"Unsupported patch recipe {recipe_id!r}")
+    applied_file_edits = 0
+    for edit in file_edits:
+        replace_once(workspace / edit["path"], edit["find"], edit["replace"])
+        applied_file_edits += 1
     diffs = []
     changed_files = []
     for path, old_text in before.items():
@@ -280,6 +327,7 @@ def apply_patch_recipe(workspace: Path, action: dict[str, Any]) -> dict[str, Any
     return {
         "patch_applied": bool(changed_files),
         "patch_recipe_id": recipe_id,
+        "file_edits_applied": applied_file_edits,
         "changed_files": changed_files,
         "code_diff": "".join(diffs),
     }
