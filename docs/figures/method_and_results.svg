@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Multiagent Codex Scientist method and main result</title>
+  <desc id="desc">A two-panel figure. The left panel shows the communication checkpoint from Node A through experiment, summary, critique from Node B, and revised action. The right panel shows final-score lift over matched self critique for self critique, peer critique, and peer plus mutation.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <style>
+    .page { fill: #f8fafc; }
+    .panel { fill: #ffffff; stroke: #d8dee9; stroke-width: 1.4; rx: 18; }
+    .title { font: 700 25px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+    .subtitle { font: 500 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #64748b; }
+    .label { font: 700 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0f172a; }
+    .small { font: 500 13px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
+    .tiny { font: 500 12px Inter, ui-sans-serif, system-ui, sans-serif; fill: #64748b; }
+    .box { fill: #f8fbff; stroke: #9db8d6; stroke-width: 1.5; rx: 11; filter: url(#shadow); }
+    .box-strong { fill: #eff6ff; stroke: #3b82f6; stroke-width: 1.8; rx: 11; filter: url(#shadow); }
+    .box-peer { fill: #ecfdf5; stroke: #22a06b; stroke-width: 1.8; rx: 11; filter: url(#shadow); }
+    .arrow { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+    .soft-arrow { stroke: #64748b; stroke-width: 1.8; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+    .axis { stroke: #334155; stroke-width: 1.4; }
+    .grid { stroke: #e2e8f0; stroke-width: 1; }
+    .bar-self { fill: #94a3b8; }
+    .bar-peer { fill: #3b82f6; }
+    .bar-mut { fill: #22a06b; }
+    .err { stroke: #0f172a; stroke-width: 1.8; }
+  </style>
+
+  <rect class="page" x="0" y="0" width="1200" height="620"/>
+
+  <rect class="panel" x="36" y="36" width="542" height="548"/>
+  <text class="title" x="64" y="80">Communication checkpoint</text>
+  <text class="subtitle" x="64" y="106">One controlled message changes the next research action.</text>
+
+  <rect class="box-strong" x="176" y="136" width="260" height="58"/>
+  <text class="label" x="306" y="160" text-anchor="middle">Node A</text>
+  <text class="small" x="306" y="181" text-anchor="middle">isolated research branch</text>
+
+  <path class="arrow" d="M306 198 L306 229"/>
+  <rect class="box" x="176" y="234" width="260" height="58"/>
+  <text class="label" x="306" y="258" text-anchor="middle">Experiment</text>
+  <text class="small" x="306" y="279" text-anchor="middle">run TinyWorlds training</text>
+
+  <path class="arrow" d="M306 296 L306 327"/>
+  <rect class="box" x="176" y="332" width="260" height="58"/>
+  <text class="label" x="306" y="356" text-anchor="middle">Summary</text>
+  <text class="small" x="306" y="377" text-anchor="middle">metrics, patch, branch state</text>
+
+  <rect class="box-peer" x="438" y="332" width="98" height="58"/>
+  <text class="label" x="487" y="356" text-anchor="middle">Node B</text>
+  <text class="tiny" x="487" y="377" text-anchor="middle">peer</text>
+
+  <path class="arrow" d="M306 394 L306 425"/>
+  <path class="soft-arrow" d="M438 361 C406 361 398 432 366 432"/>
+  <rect class="box-peer" x="176" y="430" width="260" height="58"/>
+  <text class="label" x="306" y="454" text-anchor="middle">Critique from B</text>
+  <text class="small" x="306" y="475" text-anchor="middle">or self critique when B = A</text>
+
+  <path class="arrow" d="M306 492 L306 510"/>
+  <rect class="box-strong" x="176" y="515" width="260" height="34"/>
+  <text class="label" x="306" y="537" text-anchor="middle">Revised action</text>
+
+  <text class="tiny" x="306" y="567" text-anchor="middle">Self critique sees only its own summary.</text>
+  <text class="tiny" x="306" y="581" text-anchor="middle">Peer transfer may copy, mutate, recombine, reject, or invent.</text>
+
+  <rect class="panel" x="622" y="36" width="542" height="548"/>
+  <text class="title" x="650" y="80">Main effect</text>
+  <text class="subtitle" x="650" y="106">Final-score lift over matched self-critique baseline.</text>
+
+  <g transform="translate(682,150)">
+    <line class="grid" x1="0" y1="300" x2="410" y2="300"/>
+    <line class="grid" x1="0" y1="233.3" x2="410" y2="233.3"/>
+    <line class="grid" x1="0" y1="166.7" x2="410" y2="166.7"/>
+    <line class="grid" x1="0" y1="100" x2="410" y2="100"/>
+    <line class="grid" x1="0" y1="33.3" x2="410" y2="33.3"/>
+
+    <line class="axis" x1="0" y1="300" x2="410" y2="300"/>
+    <line class="axis" x1="0" y1="30" x2="0" y2="300"/>
+
+    <text class="tiny" x="-12" y="304" text-anchor="end">+0.000</text>
+    <text class="tiny" x="-12" y="237.3" text-anchor="end">+0.004</text>
+    <text class="tiny" x="-12" y="170.7" text-anchor="end">+0.008</text>
+    <text class="tiny" x="-12" y="104" text-anchor="end">+0.012</text>
+    <text class="tiny" x="-12" y="37.3" text-anchor="end">+0.016</text>
+
+    <text class="tiny" x="-58" y="166" transform="rotate(-90 -58 166)" text-anchor="middle">final-score lift</text>
+
+    <rect class="bar-self" x="46" y="296" width="72" height="4" rx="2"/>
+    <text class="small" x="82" y="286" text-anchor="middle">+0.0000</text>
+    <text class="small" x="82" y="328" text-anchor="middle">Self</text>
+    <text class="tiny" x="82" y="346" text-anchor="middle">critique</text>
+
+    <rect class="bar-peer" x="172" y="186.9" width="72" height="113.1" rx="5"/>
+    <line class="err" x1="208" y1="159.2" x2="208" y2="214.6"/>
+    <line class="err" x1="196" y1="159.2" x2="220" y2="159.2"/>
+    <line class="err" x1="196" y1="214.6" x2="220" y2="214.6"/>
+    <text class="small" x="208" y="149" text-anchor="middle">+0.0068</text>
+    <text class="small" x="208" y="328" text-anchor="middle">Peer</text>
+    <text class="tiny" x="208" y="346" text-anchor="middle">critique</text>
+
+    <rect class="bar-mut" x="298" y="124.7" width="72" height="175.3" rx="5"/>
+    <line class="err" x1="334" y1="20.8" x2="334" y2="228.5"/>
+    <line class="err" x1="322" y1="20.8" x2="346" y2="20.8"/>
+    <line class="err" x1="322" y1="228.5" x2="346" y2="228.5"/>
+    <text class="small" x="334" y="14" text-anchor="middle">+0.0105</text>
+    <text class="small" x="334" y="328" text-anchor="middle">Peer +</text>
+    <text class="tiny" x="334" y="346" text-anchor="middle">mutation</text>
+  </g>
+
+  <text class="tiny" x="650" y="540">Bars: 5-seed mean lift versus the matched self condition.</text>
+  <text class="tiny" x="650" y="560">Error bars: sample standard deviation across paired seed lifts.</text>
+</svg>

@@ -1,3 +1,0 @@
-DRY RUN agent=1 step=1
-primary_score=0.52
-reconstruction_loss=0.9231

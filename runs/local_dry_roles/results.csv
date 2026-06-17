@@ -1,4 +1,0 @@
-ablation_quality,agent_id,communication_value,completion_tokens,condition,decision_changed,duplicate_experiment_rate,experiment_success_rate,failure_avoidance,final_metric_score,later_helped,metric_improvement,prompt_tokens,reviewer_score,runtime,unsupported_claim_count
-0.7,agent_0,1,166,peer_critique_with_roles,True,0.6666666666666666,1,0,0.5225,True,0.01079999999999992,726,6.5,35.941,1
-0.7,agent_1,1,166,peer_critique_with_roles,True,0.6666666666666666,1,0,0.5295,True,0.009499999999999953,729,6.5,33.73,1
-0.7,agent_2,1,166,peer_critique_with_roles,True,0.6666666666666666,1,0,0.5376,True,0.013799999999999923,727,6.5,32.259,1

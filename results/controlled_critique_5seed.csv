@@ -1,0 +1,4 @@
+condition,seeds,final_metric_score,final_metric_score_stddev,metric_improvement,metric_improvement_stddev,fraction_decision_changed,fraction_decision_changed_stddev,cross_agent_transfer_rate,cross_agent_transfer_rate_stddev
+self critique,0 1 2 4 5,0.974884,0.001591,0.019771,0.00151,1.0,0.0,0.0,0.0
+peer critique,0 1 2 4 5,0.981672,0.000351,0.02525,0.001448,1.0,0.0,0.666667,0.0
+peer + roles,0 1 2 4 5,0.981181,0.000912,0.024143,0.000852,1.0,0.0,0.666667,0.0
