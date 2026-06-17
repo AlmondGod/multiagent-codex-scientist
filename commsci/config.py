@@ -167,6 +167,10 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
     config = deep_merge(config, cli_override)
     if args.max_tokens_per_critique is not None:
         config["model"]["max_completion_tokens"] = args.max_tokens_per_critique
+    if args.max_runtime_minutes_per_experiment is not None:
+        runtime_seconds = int(float(args.max_runtime_minutes_per_experiment) * 60)
+        config["experiment"]["codex_scientist_time_budget_seconds"] = runtime_seconds
+        config["experiment"]["ai_scientist_time_budget_seconds"] = runtime_seconds
     return config
 
 

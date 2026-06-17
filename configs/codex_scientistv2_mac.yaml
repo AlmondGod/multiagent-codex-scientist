@@ -1,0 +1,37 @@
+experiment:
+  runner: codex_scientistv2
+  task_spec: "Discover and write a workshop-style TinyWorlds world-model paper using Codex-Scientist-v2."
+  ai_scientist_data_dir: "/Users/almondgod/Repositories/tinyworlds-autoresearch"
+  codex_scientist_doctrine_doc: "docs/codex-aiscientistv2.md"
+  codex_scientist_backend: supervised_thread_tools
+  codex_scientist_parallel_workers: 3
+  codex_scientist_time_budget_seconds: 120
+  codex_scientist_timeout_seconds: 240
+  codex_scientist_patch_recipes:
+    - baseline_no_patch
+    - dynamics_first_schedule
+    - action_grad_dynamics
+    - smooth_l1_dynamics_pixel
+    - sharpen_change_weights
+    - full_budget_action_supervision
+  tinyworlds_baseline_knobs:
+    TW_DATASET: minigrid
+    TW_DEPTH: "1"
+  allowed_files:
+    - train.py
+    - models.py
+compute:
+  num_agents: 3
+model:
+  mock_model: true
+  seed: 0
+base_system:
+  write_full_paper: true
+  reviewer_enabled: false
+paths:
+  output_dir: "runs/codex_scientistv2_smoke"
+  tinyworlds_dir: "/Users/almondgod/Repositories/tinyworlds-autoresearch"
+codex_scientistv2:
+  generations: 1
+  init_default_actions: true
+  skip_experiments: false

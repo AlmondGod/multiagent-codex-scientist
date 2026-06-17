@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 
 from commsci.artifacts import ensure_dir, write_json, write_text
+from commsci.codex_scientist.paper import write_domain_paper_from_run
 from commsci.codex_scientist.runner import run_codex_scientist_branch_expansion
 from commsci.config import DEFAULT_CONFIG, deep_merge, write_config
 
@@ -40,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll_seconds", type=float, default=5)
     parser.add_argument("--action_timeout_seconds", type=float, default=3600)
     parser.add_argument("--init_default_actions", action="store_true")
+    parser.add_argument("--doctrine_doc", default="docs/codex-aiscientistv2.md")
     return parser.parse_args()
 
 
@@ -47,7 +49,10 @@ def main() -> int:
     args = parse_args()
     output_dir = ensure_dir(Path(args.output_dir).expanduser().resolve())
     action_root = ensure_dir(output_dir / "live_actions")
+    doctrine = read_doctrine(args.doctrine_doc)
     config = build_config(args, action_root)
+    config["experiment"]["codex_scientist_doctrine_doc"] = args.doctrine_doc
+    config["experiment"]["codex_scientist_doctrine"] = doctrine[:12000]
     write_config(output_dir / "config.yaml", config)
     write_json(
         output_dir / "run_spec.json",
@@ -63,7 +68,7 @@ def main() -> int:
         write_initial_actions(action_root, args.num_agents)
     for generation in range(args.generations):
         action_dir = ensure_dir(action_root / f"generation_{generation:02d}")
-        write_generation_prompts(output_dir, action_dir, generation, args.num_agents)
+        write_generation_prompts(output_dir, action_dir, generation, args.num_agents, doctrine)
         if args.wait_for_actions:
             wait_for_actions(action_dir, generation, args.num_agents, args.action_timeout_seconds, args.poll_seconds)
         missing = missing_actions(action_dir, generation, args.num_agents)
@@ -80,8 +85,10 @@ def main() -> int:
         write_json(output_dir / "latest_population_summary.json", summary)
         write_lineage_graph(output_dir, generation)
         print(f"Completed generation {generation}; best_score={summary[0].get('primary_score') if summary else None}", flush=True)
-    write_paper(output_dir, args.generations)
-    print(f"Wrote paper draft to {output_dir / 'paper.md'}")
+    write_search_report(output_dir, args.generations, doctrine)
+    paper_path = write_domain_paper_from_run(output_dir, output_dir / "paper.md")
+    print(f"Wrote domain paper to {paper_path}")
+    print(f"Wrote search report to {output_dir / 'search_report.md'}")
     return 0
 
 
@@ -105,8 +112,9 @@ def build_config(args: argparse.Namespace, action_root: Path) -> dict[str, Any]:
             "experiment": {
                 "runner": "codex_scientist",
                 "task_spec": (
-                    "Explore high-variance TinyWorlds architecture/training ideas through cultural evolution. "
-                    "Agents should produce paper-worthy ideas with explicit lineage: copy, mutate, recombine, reject, or invent."
+                    "Explore literature-inspired TinyWorlds world-model ideas through cultural evolution. "
+                    "Agents should prioritize conceptually distinctive, paper-worthy mechanisms over scalar knob sweeps, "
+                    "while preserving explicit lineage: copy, mutate, recombine, reject, or invent."
                 ),
                 "ai_scientist_data_dir": args.tinyworlds_dir,
                 "codex_scientist_time_budget_seconds": args.time_budget_seconds,
@@ -122,6 +130,13 @@ def build_config(args: argparse.Namespace, action_root: Path) -> dict[str, Any]:
         },
     )
     return config
+
+
+def read_doctrine(path: str) -> str:
+    doctrine_path = Path(path).expanduser()
+    if not doctrine_path.is_absolute():
+        doctrine_path = Path.cwd() / doctrine_path
+    return doctrine_path.read_text(encoding="utf-8") if doctrine_path.exists() else ""
 
 
 def write_initial_actions(action_root: Path, num_agents: int) -> None:
@@ -154,7 +169,7 @@ def write_initial_actions(action_root: Path, num_agents: int) -> None:
         (action_dir / f"agent_{agent_index}_step_1.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def write_generation_prompts(output_dir: Path, action_dir: Path, generation: int, num_agents: int) -> None:
+def write_generation_prompts(output_dir: Path, action_dir: Path, generation: int, num_agents: int, doctrine: str) -> None:
     prompt_dir = ensure_dir(output_dir / "live_prompts" / f"generation_{generation:02d}")
     previous_summary = output_dir / f"population_summary_generation_{generation - 1:02d}.json"
     visible = previous_summary.read_text(encoding="utf-8") if previous_summary.exists() else "[]"
@@ -173,7 +188,8 @@ Target action file:
 You are agent_{agent_index} in generation {generation} of a 15-generation
 Codex-Scientist cultural-evolution run.
 
-Goal: produce a paper-worthy, high-variance TinyWorlds idea. You may use:
+Goal: produce a paper-worthy, high-variance TinyWorlds idea. Prioritize
+literature-inspired mechanisms over scalar knob sweeps. You may use:
 
 - curated `patch_recipe_id`: {", ".join(PATCH_RECIPES)}
 - exact `file_edits` against only `train.py` and `models.py`
@@ -189,6 +205,12 @@ Population summary from the previous generation:
 
 ```json
 {visible[:7000]}
+```
+
+Autoresearch doctrine:
+
+```markdown
+{doctrine[:8000]}
 ```
 
 Write only valid JSON. The JSON may include:
@@ -209,7 +231,7 @@ Write only valid JSON. The JSON may include:
       "replace": "replacement text"
     }}
   ],
-  "rationale": "why this is a high-variance idea worth trying"
+  "rationale": "why this is a high-variance, literature-inspired idea worth trying"
 }}
 ```
 """,
@@ -371,7 +393,7 @@ def safe_id(value: str) -> str:
     return value.replace("-", "_").replace(".", "_")
 
 
-def write_paper(output_dir: Path, generations: int) -> None:
+def write_search_report(output_dir: Path, generations: int, doctrine: str) -> None:
     summaries = []
     for generation in range(generations):
         path = output_dir / f"population_summary_generation_{generation:02d}.json"
@@ -392,16 +414,40 @@ def write_paper(output_dir: Path, generations: int) -> None:
         f"| {row['generation']} | {row['agent_id']} | {row['primary_score']} | {row['patch_recipe_id']} | {row['inheritance_mode']} | {row['recipe_id']} |"
         for row in best_by_generation
     )
+    best_rationale = best.get("rationale") or "No rationale recorded."
+    negative = min(flat, key=lambda row: row.get("primary_score") or 10**9) if flat else {}
+    bibliography = bibliography_section()
     write_text(
-        output_dir / "paper.md",
+        output_dir / "search_report.md",
         f"""# Cultural Evolution in a Live Codex-Scientist TinyWorlds Population
 
 ## Abstract
 
 We ran a 3-agent, {generations}-generation exploratory Codex-Scientist tree in
-which agents proposed high-variance TinyWorlds training and architecture changes,
+which agents proposed literature-inspired TinyWorlds world-model interventions,
 executed real experiments, and used explicit cultural operators over prior
-branches. The best observed node reached primary_score={best.get('primary_score')}.
+branches. The best observed node reached primary_score={best.get('primary_score')}
+with recipe `{best.get('recipe_id')}`. The run provides a case study of how a
+supervised automated research population can preserve, recombine, and reject
+ideas while generating a paper-style scientific record.
+
+## Background
+
+AI-Scientist-style systems aim to connect ideation, implementation, experiment
+execution, analysis, paper writing, and review into an end-to-end research loop.
+Agentic scientific-discovery surveys emphasize that such systems need explicit
+evaluation, provenance, and failure handling. In parallel, world-model research
+studies learned dynamics models that predict future states under actions, while
+cultural-evolution theory suggests that populations can improve by transmitting
+and recombining useful ideas.
+
+## Motivation
+
+The motivating question is whether automated research should be organized as an
+isolated optimizer or as a population with cultural transfer. If agents can
+share evidence, copy successful ideas, mutate promising branches, recombine
+partial mechanisms, and reject weak directions, then later branches should
+contain more accumulated research knowledge than self-only search.
 
 ## Methods
 
@@ -411,37 +457,84 @@ use curated patch recipes, validated `TW_*` knobs, and exact source edits agains
 allowlisted files (`train.py`, `models.py`). Each non-initial action recorded an
 inheritance operator: copy, mutate, recombine, reject, or invent.
 
+The run brief asked agents to prioritize distinctive world-model mechanisms over
+mere knob changes. Relevant themes included action-conditioned dynamics,
+learnable action representations, imagined rollout consistency, robust
+reconstruction, counterfactual spread, and explicit negative-result handling.
+
+## Experiments
+
+The experiment used {len(flat)} total node executions: {generations} generations
+times 3 agents. Each node independently prepared an isolated TinyWorlds workspace,
+applied its selected action, ran the bounded training harness, parsed
+`working/metrics.json`, and saved logs plus action metadata. Population summaries
+were written after every generation and exposed as the only cross-generation
+evidence for later action selection.
+
 ## Results
 
 - total nodes: {len(flat)}
 - mean score: {round(mean(scores), 6) if scores else None}
 - best score: {best.get('primary_score')}
 - best node: {best.get('node_id')}
+- best recipe: {best.get('recipe_id')}
 - operator counts: {json.dumps(operator_counts, sort_keys=True)}
 
 | Generation | Agent | Best score | Patch recipe | Operator | Recipe |
 | ---: | --- | ---: | --- | --- | --- |
 {table}
 
-## Lineage Analysis
+The best node rationale was:
+
+> {best_rationale}
+
+The weakest observed node was `{negative.get('node_id')}` with
+primary_score={negative.get('primary_score')} and recipe
+`{negative.get('recipe_id')}`.
+
+## Lineage And Cultural-Evolution Analysis
 
 The lineage graph is stored in `lineage_graph.md`. Successful ideas should be
 read as branches that spread by copy or recombination and continue improving
-across later generations.
+across later generations. Operator counts are useful because they show whether
+the population merely invented isolated variants or actually transmitted ideas.
+In this run, the strongest evidence for cultural accumulation is any later
+high-scoring node that cites a previous high-scoring source and preserves or
+improves its mechanism.
 
 ## Limitations
 
 This is a single exploratory run, not a controlled ablation. Its purpose is to
 produce a paper-style case study and discover high-variance ideas worth testing
-under stricter replicated conditions.
+under stricter replicated conditions. The current runner records declared
+cultural operators and validates executable actions, but it does not yet enforce
+semantic copy/mutate/recombine correctness with action hashes. A stronger paper
+requires matched self-only and random-transfer controls over more seeds.
 
 ## Conclusion
 
 This run provides an auditable case study of cultural evolution over live
 Codex-Scientist research nodes. The next step is to compare the discovered
-lineage against self-only and random-transfer controls.
+lineage against self-only and random-transfer controls, then rerun the best
+ideas with longer budgets and independent seeds.
+
+## Bibliography
+
+{bibliography}
 """,
     )
+
+
+def bibliography_section() -> str:
+    return """1. Chris Lu, Cong Lu, Robert Tjarko Lange, Jakob Foerster, Jeff Clune, and David Ha. "The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery." arXiv:2408.06292, 2024.
+2. Sakana AI. "The AI Scientist." 2024. https://sakana.ai/ai-scientist/
+3. Yamada et al. "The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search." arXiv:2504.08066, 2025.
+4. "Agentic AI for Scientific Discovery: A Survey of Progress, Challenges, and Future Directions." arXiv:2503.08979, 2025.
+5. "World Model Pre-training with Learnable Action Representation." ECCV, 2024.
+6. David Ha and Juergen Schmidhuber. "World Models." 2018.
+7. Danijar Hafner et al. Dreamer-style latent dynamics world-model work.
+8. Joseph Henrich and related work on cultural evolution and cumulative culture.
+9. Recent collective-intelligence and multi-agent LLM literature on agent interaction patterns and group performance."""
 
 
 if __name__ == "__main__":

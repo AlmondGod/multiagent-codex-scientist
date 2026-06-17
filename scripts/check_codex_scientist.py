@@ -9,6 +9,7 @@ from commsci.codex_scientist.actions import apply_patch_recipe, normalize_action
 from commsci.codex_scientist.checks import check_artifact_completeness, check_metrics_fixture
 from commsci.codex_scientist.communication import load_critique_override, load_decision_override
 from commsci.codex_scientist.schemas import CodexNode
+from commsci.codex_scientistv2.pipeline import write_v2_outputs
 
 
 def main() -> int:
@@ -109,6 +110,84 @@ def main() -> int:
         edit_result = apply_patch_recipe(tmp_path, edit_action)
         assert edit_result["file_edits_applied"] == 1
         assert "ALPHA = 2" in (tmp_path / "train.py").read_text(encoding="utf-8")
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        node_id = "cultural_evolution_agent_0_node_1"
+        node_dir = (
+            tmp_path
+            / "cultural_evolution"
+            / "agent_0"
+            / "artifacts"
+            / "codex_scientist"
+            / "nodes"
+            / node_id
+        )
+        node_dir.mkdir(parents=True)
+        (node_dir / "action.json").write_text(
+            json.dumps(
+                {
+                    "recipe_id": "g0_agent0_fixture",
+                    "patch_recipe": {"id": "baseline_no_patch"},
+                    "inheritance": {"mode": "invent", "source_node_ids": []},
+                    "knobs": {"depth": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (node_dir / "metrics.json").write_text(
+            json.dumps(
+                {
+                    "experiment_success": True,
+                    "primary_score": 0.75,
+                    "val_mse": 0.25,
+                    "runtime_sec": 1.5,
+                    "params_M": 0.1,
+                    "dataset": "fixture",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (node_dir / "patch_result.json").write_text(
+            json.dumps({"patch_applied": False, "code_diff": ""}),
+            encoding="utf-8",
+        )
+        (node_dir / "logs.txt").write_text("fixture log\n", encoding="utf-8")
+        (tmp_path / "population_summary_generation_00.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "generation": 0,
+                        "agent_id": "agent_0",
+                        "node_id": node_id,
+                        "parent_id": None,
+                        "primary_score": 0.75,
+                        "val_mse": 0.25,
+                        "experiment_success": True,
+                        "recipe_id": "g0_agent0_fixture",
+                        "patch_recipe_id": "baseline_no_patch",
+                        "knobs": {"depth": 1},
+                        "inheritance_mode": "invent",
+                        "source_node_ids": [],
+                        "rationale": "fixture",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        v2_dir = write_v2_outputs(tmp_path)
+        assert (v2_dir / "run_manifest.json").exists()
+        assert (v2_dir / "rich_nodes.jsonl").exists()
+        assert (v2_dir / "stage_reports" / "initial_implementation.json").exists()
+        assert (v2_dir / "ablation_report.json").exists()
+        assert (v2_dir / "literature" / "references.bib").exists()
+        assert (v2_dir / "codex_tasks" / "paper_reflection.md").exists()
+        assert (tmp_path / "figures" / "best_score_by_generation.svg").exists()
+        assert (tmp_path / "figures" / "cultural_tree.svg").exists()
+        assert (tmp_path / "latex" / "template.tex").exists()
+        assert (tmp_path / "latex" / "paper.tex").exists()
+        assert (tmp_path / "latex" / "compile.log").exists()
+        assert (tmp_path / "review" / "review_scaffold.json").exists()
+        assert (tmp_path / "paper.md").exists()
     print("codex_scientist checks passed")
     return 0
 
