@@ -23,6 +23,16 @@ DEFAULTS = {
     "live_actions_src": None,
     "init_default_actions": False,
     "skip_experiments": False,
+    "run_initial_literature_nodes": True,
+    "rerun_initial_literature_nodes": False,
+    "literature_node_count": None,
+    "literature_max_results_per_node": 6,
+    "run_controlled_ablations": True,
+    "rerun_controlled_ablations": False,
+    "max_controlled_ablations": 3,
+    "ablation_time_budget_seconds": 60,
+    "ablation_timeout_seconds": 240,
+    "ablation_parallel_workers": 1,
 }
 
 
@@ -41,6 +51,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--live_actions_src", default=None)
     parser.add_argument("--init_default_actions", action="store_true", default=None)
     parser.add_argument("--skip_experiments", action="store_true", default=None)
+    parser.add_argument("--run_initial_literature_nodes", action="store_true", default=None)
+    parser.add_argument("--rerun_initial_literature_nodes", action="store_true", default=None)
+    parser.add_argument("--literature_node_count", type=int, default=None)
+    parser.add_argument("--literature_max_results_per_node", type=int, default=None)
+    parser.add_argument("--run_controlled_ablations", action="store_true", default=None)
+    parser.add_argument("--rerun_controlled_ablations", action="store_true", default=None)
+    parser.add_argument("--max_controlled_ablations", type=int, default=None)
+    parser.add_argument("--ablation_time_budget_seconds", type=int, default=None)
+    parser.add_argument("--ablation_timeout_seconds", type=int, default=None)
+    parser.add_argument("--ablation_parallel_workers", type=int, default=None)
     args = parser.parse_args()
     return apply_config_defaults(args)
 
@@ -83,6 +103,16 @@ def defaults_from_config(config: dict[str, Any]) -> dict[str, Any]:
         "live_actions_src",
         "init_default_actions",
         "skip_experiments",
+        "run_initial_literature_nodes",
+        "rerun_initial_literature_nodes",
+        "literature_node_count",
+        "literature_max_results_per_node",
+        "run_controlled_ablations",
+        "rerun_controlled_ablations",
+        "max_controlled_ablations",
+        "ablation_time_budget_seconds",
+        "ablation_timeout_seconds",
+        "ablation_parallel_workers",
     }
     for key in direct_keys:
         if key in v2:

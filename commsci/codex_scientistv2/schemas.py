@@ -5,6 +5,7 @@ from typing import Any
 
 
 V2_STAGES = [
+    "literature_review",
     "initial_implementation",
     "baseline_tuning",
     "creative_research",

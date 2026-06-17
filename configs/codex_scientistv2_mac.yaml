@@ -35,3 +35,13 @@ codex_scientistv2:
   generations: 1
   init_default_actions: true
   skip_experiments: false
+  run_initial_literature_nodes: true
+  rerun_initial_literature_nodes: false
+  literature_node_count:
+  literature_max_results_per_node: 6
+  run_controlled_ablations: true
+  rerun_controlled_ablations: false
+  max_controlled_ablations: 3
+  ablation_time_budget_seconds: 60
+  ablation_timeout_seconds: 240
+  ablation_parallel_workers: 1

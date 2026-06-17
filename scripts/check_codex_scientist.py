@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -174,18 +175,29 @@ def main() -> int:
             ),
             encoding="utf-8",
         )
-        v2_dir = write_v2_outputs(tmp_path)
+        previous_offline = os.environ.get("CODEX_SCIENTISTV2_OFFLINE_LITERATURE")
+        os.environ["CODEX_SCIENTISTV2_OFFLINE_LITERATURE"] = "1"
+        try:
+            v2_dir = write_v2_outputs(tmp_path)
+        finally:
+            if previous_offline is None:
+                os.environ.pop("CODEX_SCIENTISTV2_OFFLINE_LITERATURE", None)
+            else:
+                os.environ["CODEX_SCIENTISTV2_OFFLINE_LITERATURE"] = previous_offline
         assert (v2_dir / "run_manifest.json").exists()
         assert (v2_dir / "rich_nodes.jsonl").exists()
         assert (v2_dir / "stage_reports" / "initial_implementation.json").exists()
         assert (v2_dir / "ablation_report.json").exists()
         assert (v2_dir / "literature" / "references.bib").exists()
+        assert (v2_dir / "literature" / "literature_review.json").exists()
         assert (v2_dir / "codex_tasks" / "paper_reflection.md").exists()
         assert (tmp_path / "figures" / "best_score_by_generation.svg").exists()
         assert (tmp_path / "figures" / "cultural_tree.svg").exists()
         assert (tmp_path / "latex" / "template.tex").exists()
         assert (tmp_path / "latex" / "paper.tex").exists()
         assert (tmp_path / "latex" / "compile.log").exists()
+        assert (tmp_path / "review" / "review.json").exists()
+        assert (tmp_path / "review" / "vlm_review.json").exists()
         assert (tmp_path / "review" / "review_scaffold.json").exists()
         assert (tmp_path / "paper.md").exists()
     print("codex_scientist checks passed")

@@ -172,6 +172,25 @@ The LaTeX paper must include:
   evidence
 - a bibliography command such as `\bibliography{references}`
 
+The Codex-Scientist-v2 runner must also execute the surrounding paper pipeline,
+not merely write placeholders:
+
+- run one initial literature-review node per agent before experiment ideation;
+  these nodes should retrieve through configured APIs when reachable, fall back
+  to recorded seed references only with an explicit error/status artifact, and
+  expose their synthesized idea seeds to the first experimental generation
+- retrieve final best-idea literature after the search and merge it with the
+  initial literature-node references
+- refresh `latex/references.bib` from the literature stage
+- run bounded controlled ablations around the best branch when experiments are
+  not skipped
+- write `codex_scientistv2/ablation_report.json` with both population
+  comparisons and controlled-ablation results
+- run a local automated paper review and figure review when no live Codex or
+  LLM/VLM reviewer backend is configured
+- attempt LaTeX/BibTeX compilation and preserve `latex/compile.log`, including
+  a clear skipped status if no TeX toolchain is installed
+
 The main Results section must not dump every generated candidate. It should
 include focused ablations and comparisons:
 
@@ -196,6 +215,16 @@ A successful Codex-Scientist-v2 paper run should preserve:
 - `latex/paper.pdf`: compiled output when the environment has LaTeX installed
 - `latex/compile.log`: compiler output or a clear explanation of why compile
   was skipped
+- `codex_scientistv2/literature_nodes/summary.json`: one initial literature
+  node per agent, including query, status, references, synthesis, and idea seeds
+- `codex_scientistv2/literature_nodes/initial_literature_context.md`: the
+  context shown to the first experimental generation
+- `codex_scientistv2/literature/literature_review.json`: retrieval status,
+  references, and synthesis
+- `controlled_ablations/summary.json`: real control reruns when experiments are
+  not skipped
+- `review/review.json`: automated text review
+- `review/vlm_review.json`: automated figure review
 - `paper.md`: optional readable Markdown companion, not the primary manuscript
 - `figures/`: generated plots used by the LaTeX manuscript
 - `codex_scientistv2/ablation_report.json`: evidence source for tables

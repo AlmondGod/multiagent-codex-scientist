@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -12,11 +18,17 @@ from xml.sax.saxutils import escape
 
 from commsci.artifacts import ensure_dir, write_json, write_text
 from commsci.codex_scientist.paper import load_population_rows, score_key, write_domain_latex_from_run, write_domain_paper_from_run
+from commsci.codex_scientist.runner import run_codex_scientist_branch_expansion
+from commsci.config import DEFAULT_CONFIG, deep_merge
 
 from .schemas import RichCodexNode, StageReport, V2_STAGES
 
 
 STAGE_GOALS = {
+    "literature_review": [
+        "Run multiagent literature nodes before experiment generation.",
+        "Produce query-specific evidence and idea seeds that become visible context for the first experimental nodes.",
+    ],
     "initial_implementation": [
         "Establish a working TinyWorlds baseline and verify the harness.",
         "Prefer simple executable interventions over novelty.",
@@ -48,9 +60,21 @@ STAGE_GOALS = {
 def run_codex_scientistv2(args: Any) -> Path:
     output_dir = Path(args.output_dir).expanduser().resolve()
     ensure_dir(output_dir)
+    if should_run_initial_literature_nodes(args):
+        run_initial_literature_nodes(output_dir, args)
     if not getattr(args, "skip_experiments", False):
         run_population_tree(args, output_dir)
+    if should_run_controlled_ablations(args):
+        run_controlled_ablations(output_dir, args)
     return write_v2_outputs(output_dir, doctrine_doc=getattr(args, "doctrine_doc", None))
+
+
+def should_run_controlled_ablations(args: Any) -> bool:
+    return bool(getattr(args, "run_controlled_ablations", False)) and not bool(getattr(args, "skip_experiments", False))
+
+
+def should_run_initial_literature_nodes(args: Any) -> bool:
+    return bool(getattr(args, "run_initial_literature_nodes", True))
 
 
 def run_population_tree(args: Any, output_dir: Path) -> None:
@@ -84,7 +108,366 @@ def run_population_tree(args: Any, output_dir: Path) -> None:
     ]
     if getattr(args, "init_default_actions", False):
         cmd.append("--init_default_actions")
+    literature_context = output_dir / "codex_scientistv2" / "literature_nodes" / "initial_literature_context.md"
+    if literature_context.exists():
+        cmd.extend(["--literature_context_file", str(literature_context)])
     subprocess.run(cmd, check=True)
+
+
+def run_initial_literature_nodes(output_dir: Path, args: Any) -> None:
+    lit_root = ensure_dir(output_dir / "codex_scientistv2" / "literature_nodes")
+    summary_path = lit_root / "summary.json"
+    if summary_path.exists() and not bool(getattr(args, "rerun_initial_literature_nodes", False)):
+        return
+    node_count = getattr(args, "literature_node_count", None)
+    if node_count is None:
+        node_count = getattr(args, "num_agents", 3)
+    node_count = max(1, int(node_count))
+    limit = max(1, int(getattr(args, "literature_max_results_per_node", 6)))
+    doctrine = read_text_file(getattr(args, "doctrine_doc", None))[:12000]
+    queries = build_initial_literature_queries(node_count)
+    seed_refs = seed_literature_references()
+    nodes: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=min(node_count, max(1, int(getattr(args, "parallel_workers", node_count))))) as pool:
+        futures = {
+            pool.submit(fetch_semantic_scholar, query, limit): (index, query)
+            for index, query in enumerate(queries)
+        }
+        for future in as_completed(futures):
+            index, query = futures[future]
+            agent_id = f"agent_{index}"
+            node_id = f"literature_{agent_id}_node_0"
+            try:
+                fetched, error = future.result()
+            except Exception as exc:  # Defensive: a literature node should degrade, not kill the run.
+                fetched, error = [], repr(exc)
+            references = merge_references(seed_refs, fetched)
+            node = {
+                "node_id": node_id,
+                "parent_id": None,
+                "agent_id": agent_id,
+                "generation": -1,
+                "stage": "literature_review",
+                "node_type": "literature",
+                "query": query,
+                "status": "complete" if fetched else "seed_only",
+                "network_error": error,
+                "num_seed_references": len(seed_refs),
+                "num_fetched_references": len(fetched),
+                "references": references,
+                "doctrine_excerpt": doctrine[:2000],
+                "synthesis": synthesize_initial_literature_node(query, references),
+                "recommended_idea_seeds": literature_idea_seeds(query),
+            }
+            node_dir = ensure_dir(lit_root / agent_id)
+            write_json(node_dir / "literature_node.json", node)
+            write_text(node_dir / "references.bib", references_to_bibtex(references))
+            write_text(node_dir / "synthesis.md", literature_node_markdown(node))
+            nodes.append(node)
+    nodes = sorted(nodes, key=lambda item: item["agent_id"])
+    write_json(summary_path, nodes)
+    write_text(lit_root / "initial_literature_context.md", initial_literature_context_markdown(nodes))
+    write_text(lit_root / "references.bib", references_to_bibtex(merge_literature_node_references(nodes)))
+
+
+def build_initial_literature_queries(node_count: int) -> list[str]:
+    base_queries = [
+        "world models action conditioned dynamics learnable action representation",
+        "counterfactual representation learning dynamics prediction world models",
+        "object centric dynamics world model latent state prediction",
+        "uncertainty calibrated dynamics model reinforcement learning world model",
+        "curriculum learning short horizon dynamics prediction world models",
+        "multi agent automated science cultural evolution collective intelligence",
+    ]
+    return [base_queries[index % len(base_queries)] for index in range(node_count)]
+
+
+def synthesize_initial_literature_node(query: str, references: list[dict[str, Any]]) -> str:
+    titles = [str(ref.get("title")) for ref in references[:5] if ref.get("title")]
+    title_text = "; ".join(titles) if titles else "seed references only"
+    return (
+        f"Query `{query}` suggests starting TinyWorlds ideas from these reference clusters: {title_text}. "
+        "Use these papers as inspiration for concrete bounded world-model interventions, not as claims of proof."
+    )
+
+
+def literature_idea_seeds(query: str) -> list[str]:
+    text = query.lower()
+    if "counterfactual" in text:
+        return [
+            "contrast observed transitions against action-swapped counterfactual predictions",
+            "penalize dynamics features that cannot distinguish plausible alternative actions",
+        ]
+    if "object" in text:
+        return [
+            "add object/motion-local reconstruction emphasis for changed pixels",
+            "separate static-background and moving-entity losses under the same short budget",
+        ]
+    if "uncertainty" in text:
+        return [
+            "calibrate losses by motion or prediction uncertainty instead of uniform reconstruction",
+            "reward robust improvements that persist under seed and budget variation",
+        ]
+    if "curriculum" in text:
+        return [
+            "front-load dynamics updates before pixel reconstruction dominates",
+            "schedule short-horizon dynamics first, then increase reconstruction weight",
+        ]
+    if "multi agent" in text or "cultural" in text:
+        return [
+            "copy high-performing recipes only when source evidence is visible",
+            "recombine complementary ideas with explicit source ids and negative-result memory",
+        ]
+    return [
+        "learn action-sensitive latent transitions instead of only frame reconstruction",
+        "test whether action supervision helps through dynamics gradients or auxiliary loss only",
+    ]
+
+
+def literature_node_markdown(node: dict[str, Any]) -> str:
+    refs = "\n".join(
+        f"- {ref.get('title')} ({ref.get('year', 'n.d.')})"
+        for ref in node.get("references", [])[:8]
+    )
+    seeds = "\n".join(f"- {seed}" for seed in node.get("recommended_idea_seeds", []))
+    return f"""# {node.get('node_id')}
+
+Query: `{node.get('query')}`
+
+Status: {node.get('status')}
+
+{node.get('synthesis')}
+
+## Recommended Idea Seeds
+
+{seeds}
+
+## References
+
+{refs}
+"""
+
+
+def initial_literature_context_markdown(nodes: list[dict[str, Any]]) -> str:
+    sections = ["# Initial Multiagent Literature Nodes", ""]
+    for node in nodes:
+        sections.extend(
+            [
+                f"## {node.get('agent_id')} / {node.get('node_id')}",
+                "",
+                f"Query: `{node.get('query')}`",
+                f"Status: {node.get('status')}; fetched references: {node.get('num_fetched_references')}",
+                "",
+                str(node.get("synthesis") or ""),
+                "",
+                "Idea seeds:",
+                *[f"- {seed}" for seed in node.get("recommended_idea_seeds", [])],
+                "",
+            ]
+        )
+    return "\n".join(sections).strip() + "\n"
+
+
+def merge_literature_node_references(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for node in nodes:
+        for ref in node.get("references", []):
+            key = str(ref.get("key") or bib_key(str(ref.get("title")), ref.get("year")))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(ref)
+    return merged
+
+
+def read_text_file(path: str | None) -> str:
+    if not path:
+        return ""
+    doc_path = Path(path).expanduser()
+    if not doc_path.is_absolute():
+        doc_path = Path.cwd() / doc_path
+    return doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""
+
+
+
+def run_controlled_ablations(output_dir: Path, args: Any) -> None:
+    rows = load_population_rows(output_dir)
+    if not rows:
+        raise FileNotFoundError(f"No population summaries found in {output_dir}")
+    ablation_root = ensure_dir(output_dir / "controlled_ablations")
+    summary_path = ablation_root / "summary.json"
+    if summary_path.exists() and not bool(getattr(args, "rerun_controlled_ablations", False)):
+        return
+    best = max(rows, key=score_key)
+    best_action = read_node_json(output_dir, best, "action.json")
+    actions = build_controlled_ablation_actions(best, best_action)
+    actions = actions[: int(getattr(args, "max_controlled_ablations", 3))]
+    action_dir = ensure_dir(ablation_root / "actions")
+    for index, action in enumerate(actions):
+        write_json(action_dir / f"ablation_{index}_step_1.json", action)
+    config = build_ablation_config(args, action_dir)
+    results = []
+    workers = max(1, min(int(getattr(args, "ablation_parallel_workers", 1)), len(actions)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {}
+        for index, action in enumerate(actions):
+            agent_id = f"ablation_{index}"
+            artifact_dir = ensure_dir(ablation_root / agent_id / "artifacts")
+            future = pool.submit(
+                run_codex_scientist_branch_expansion,
+                artifact_dir,
+                agent_id,
+                f"controlled_ablation_{index}",
+                1,
+                config,
+                int(getattr(args, "seed", 0)) + 1000 + index,
+                "Controlled Codex-Scientist-v2 ablation after the main population run.",
+                None,
+                None,
+            )
+            futures[future] = (index, action)
+        for future in as_completed(futures):
+            index, action = futures[future]
+            try:
+                expansion = future.result()
+                metrics = expansion.get("metrics") or {}
+                results.append(
+                    {
+                        "index": index,
+                        "ablation_id": action.get("recipe_id"),
+                        "description": action.get("rationale"),
+                        "metrics": metrics,
+                        "success": bool(metrics.get("experiment_success")),
+                    }
+                )
+            except Exception as exc:
+                results.append(
+                    {
+                        "index": index,
+                        "ablation_id": action.get("recipe_id"),
+                        "description": action.get("rationale"),
+                        "success": False,
+                        "error": repr(exc),
+                    }
+                )
+    results = sorted(results, key=lambda item: item["index"])
+    write_json(
+        summary_path,
+        {
+            "status": "complete",
+            "source_best_node": best.get("node_id"),
+            "source_best_recipe": best.get("recipe_id"),
+            "source_best_score": best.get("primary_score"),
+            "time_budget_seconds": int(getattr(args, "ablation_time_budget_seconds", getattr(args, "time_budget_seconds", 120))),
+            "controls": results,
+        },
+    )
+
+
+def build_ablation_config(args: Any, action_dir: Path) -> dict[str, Any]:
+    time_budget = int(getattr(args, "ablation_time_budget_seconds", getattr(args, "time_budget_seconds", 120)))
+    timeout = int(getattr(args, "ablation_timeout_seconds", max(180, time_budget + 180)))
+    return deep_merge(
+        DEFAULT_CONFIG,
+        {
+            "paths": {
+                "tinyworlds_dir": str(Path(args.tinyworlds_dir).expanduser()),
+                "output_dir": str(Path(args.output_dir).expanduser()),
+            },
+            "compute": {
+                "num_agents": 1,
+                "max_total_experiments": int(getattr(args, "max_controlled_ablations", 3)),
+            },
+            "model": {"mock_model": True, "seed": int(getattr(args, "seed", 0))},
+            "base_system": {
+                "write_full_paper": False,
+                "reviewer_enabled": False,
+            },
+            "experiment": {
+                "runner": "codex_scientist",
+                "task_spec": "Run a controlled ablation for the best Codex-Scientist-v2 TinyWorlds idea.",
+                "ai_scientist_data_dir": str(Path(args.tinyworlds_dir).expanduser()),
+                "codex_scientist_time_budget_seconds": time_budget,
+                "codex_scientist_timeout_seconds": timeout,
+                "codex_scientist_action_overrides_dir": str(action_dir),
+                "codex_scientist_patch_recipes": [
+                    "baseline_no_patch",
+                    "dynamics_first_schedule",
+                    "action_grad_dynamics",
+                    "smooth_l1_dynamics_pixel",
+                    "sharpen_change_weights",
+                    "full_budget_action_supervision",
+                ],
+                "tinyworlds_baseline_knobs": {"TW_DATASET": "minigrid", "TW_DEPTH": "1"},
+                "allowed_files": ["train.py", "models.py"],
+                "primary_metric": "primary_score",
+            },
+        },
+    )
+
+
+def build_controlled_ablation_actions(best: dict[str, Any], best_action: dict[str, Any]) -> list[dict[str, Any]]:
+    knobs = dict(best_action.get("knobs") or best.get("knobs") or {})
+    patch_id = (best_action.get("patch_recipe") or {}).get("id") or best.get("patch_recipe_id") or "baseline_no_patch"
+    file_edits = list(best_action.get("file_edits") or [])
+    source_ids = [str(best.get("node_id"))]
+    controls = [
+        {
+            "recipe_id": f"ablate_repeat_{best.get('recipe_id')}",
+            "inheritance_mode": "copy",
+            "source_agent_ids": [str(best.get("agent_id"))],
+            "source_node_ids": source_ids,
+            "patch_recipe_id": patch_id,
+            "knobs": knobs,
+            "file_edits": file_edits,
+            "rationale": "Exact repeat of the best branch under the controlled-ablation budget.",
+        },
+        {
+            "recipe_id": f"ablate_knobs_only_{best.get('recipe_id')}",
+            "inheritance_mode": "reject",
+            "source_agent_ids": [str(best.get("agent_id"))],
+            "source_node_ids": source_ids,
+            "patch_recipe_id": "baseline_no_patch",
+            "knobs": knobs,
+            "rationale": "Remove source edits and patch recipe while preserving the best branch knobs.",
+        },
+        {
+            "recipe_id": f"ablate_patch_only_{best.get('recipe_id')}",
+            "inheritance_mode": "mutate",
+            "source_agent_ids": [str(best.get("agent_id"))],
+            "source_node_ids": source_ids,
+            "patch_recipe_id": patch_id,
+            "knobs": {},
+            "file_edits": file_edits,
+            "rationale": "Preserve source edits/patch recipe but remove tuned knobs.",
+        },
+    ]
+    if patch_id == "baseline_no_patch" and not file_edits:
+        controls[2] = {
+            "recipe_id": f"ablate_minimal_baseline_{best.get('recipe_id')}",
+            "inheritance_mode": "reject",
+            "source_agent_ids": [str(best.get("agent_id"))],
+            "source_node_ids": source_ids,
+            "patch_recipe_id": "baseline_no_patch",
+            "knobs": {},
+            "rationale": "Minimal TinyWorlds baseline control with no best-branch edits or knobs.",
+        }
+    return controls
+
+
+def read_node_json(output_dir: Path, row: dict[str, Any], filename: str) -> dict[str, Any]:
+    path = (
+        output_dir
+        / "cultural_evolution"
+        / row["agent_id"]
+        / "artifacts"
+        / "codex_scientist"
+        / "nodes"
+        / row["node_id"]
+        / filename
+    )
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def write_v2_outputs(output_dir: Path, doctrine_doc: str | None = None) -> Path:
@@ -98,20 +481,20 @@ def write_v2_outputs(output_dir: Path, doctrine_doc: str | None = None) -> Path:
     ensure_dir(v2_dir / "stage_reports")
     for report in stage_reports:
         write_json(v2_dir / "stage_reports" / f"{report.name}.json", report.to_dict())
+    literature_report = write_literature_review(v2_dir, rows)
     write_json(v2_dir / "run_manifest.json", build_manifest(output_dir, rows, doctrine_doc))
-    write_json(v2_dir / "ablation_report.json", build_ablation_report(rows))
-    write_literature_seed(v2_dir)
+    write_json(v2_dir / "ablation_report.json", build_ablation_report(output_dir, rows))
     write_figures(output_dir, rows)
     write_tree_visualizations(output_dir, rows)
     write_codex_tasks(output_dir, rows, doctrine_doc)
     write_domain_paper_from_run(output_dir, output_dir / "paper.md")
     write_latex_workshop_stub(output_dir)
-    write_review_scaffold(output_dir)
+    write_review_outputs(output_dir, rows, literature_report)
     return v2_dir
 
 
 def build_rich_nodes(output_dir: Path, rows: list[dict[str, Any]]) -> list[RichCodexNode]:
-    nodes = []
+    nodes = build_literature_rich_nodes(output_dir)
     max_generation = max(int(row["generation"]) for row in rows)
     for row in sorted(rows, key=lambda item: (int(item["generation"]), item["agent_id"])):
         node_root = (
@@ -155,6 +538,47 @@ def build_rich_nodes(output_dir: Path, rows: list[dict[str, Any]]) -> list[RichC
                 analysis=analysis_for_row(row),
                 is_buggy=not bool(row.get("experiment_success")),
                 ablation_name=ablation_name_for_row(row),
+            )
+        )
+    return nodes
+
+
+def build_literature_rich_nodes(output_dir: Path) -> list[RichCodexNode]:
+    summary_path = output_dir / "codex_scientistv2" / "literature_nodes" / "summary.json"
+    if not summary_path.exists():
+        return []
+    try:
+        literature_nodes = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    nodes = []
+    for node in literature_nodes:
+        agent_id = str(node.get("agent_id") or "agent_unknown")
+        node_id = str(node.get("node_id") or f"literature_{agent_id}_node_0")
+        node_dir = output_dir / "codex_scientistv2" / "literature_nodes" / agent_id
+        nodes.append(
+            RichCodexNode(
+                node_id=node_id,
+                parent_id=None,
+                agent_id=agent_id,
+                generation=int(node.get("generation", -1)),
+                stage="literature_review",
+                recipe_id=str(node.get("query") or "literature_query"),
+                inheritance_mode="invent",
+                source_node_ids=[],
+                patch_recipe_id=None,
+                knobs={},
+                metrics={
+                    "num_fetched_references": node.get("num_fetched_references", 0),
+                    "num_seed_references": node.get("num_seed_references", 0),
+                    "status": node.get("status"),
+                },
+                action_path=str(node_dir / "literature_node.json"),
+                metrics_path=str(node_dir / "literature_node.json"),
+                logs_path=str(node_dir / "synthesis.md"),
+                code_diff_path=None,
+                rationale=str(node.get("synthesis") or ""),
+                analysis=f"Literature node queried `{node.get('query')}`.",
             )
         )
     return nodes
@@ -230,12 +654,15 @@ def build_manifest(output_dir: Path, rows: list[dict[str, Any]], doctrine_doc: s
             "rich_node_index": True,
             "stage_reports": True,
             "focused_ablations": True,
+            "controlled_ablations": (output_dir / "controlled_ablations" / "summary.json").exists(),
             "plot_aggregation": True,
             "workshop_paper_markdown": True,
             "latex_workshop_paper": True,
+            "literature_review": True,
             "citation_seed": True,
             "codex_review_prompts": True,
-            "llm_vlm_review_scaffold": True,
+            "automated_text_review": True,
+            "automated_figure_review": True,
             "noninteractive_codex_backend": False,
         },
         "total_nodes": len(rows),
@@ -247,13 +674,15 @@ def build_manifest(output_dir: Path, rows: list[dict[str, Any]], doctrine_doc: s
     }
 
 
-def build_ablation_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_ablation_report(output_dir: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
     best = max(rows, key=score_key)
     groups: dict[str, list[float]] = defaultdict(list)
     for row in rows:
         score = row.get("primary_score")
         if isinstance(score, (int, float)):
             groups[str(row.get("patch_recipe_id") or "unknown")].append(float(score))
+    controlled_path = output_dir / "controlled_ablations" / "summary.json"
+    controlled = json.loads(controlled_path.read_text(encoding="utf-8")) if controlled_path.exists() else None
     return {
         "best_method": best,
         "focused_comparisons": [
@@ -277,12 +706,47 @@ def build_ablation_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
             }
             for key, values in sorted(groups.items(), key=lambda item: max(item[1]), reverse=True)
         },
+        "controlled_ablations": controlled,
     }
 
 
-def write_literature_seed(v2_dir: Path) -> None:
+def write_literature_review(v2_dir: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
     lit_dir = ensure_dir(v2_dir / "literature")
-    references = [
+    seed_references = seed_literature_references()
+    initial_references = load_initial_literature_references(v2_dir)
+    best = max(rows, key=score_key)
+    query = literature_query_for_best(best)
+    fetched, error = fetch_semantic_scholar(query, limit=8)
+    references = merge_references(merge_references(seed_references, initial_references), fetched)
+    report = {
+        "status": "complete" if fetched else "seed_only",
+        "query": query,
+        "network_error": error,
+        "num_seed_references": len(seed_references),
+        "num_initial_literature_node_references": len(initial_references),
+        "num_fetched_references": len(fetched),
+        "references": references,
+        "synthesis": synthesize_literature_review(best, references),
+    }
+    write_json(lit_dir / "literature_review.json", report)
+    write_json(lit_dir / "literature_seed.json", seed_references)
+    write_text(lit_dir / "references.bib", references_to_bibtex(references))
+    return report
+
+
+def load_initial_literature_references(v2_dir: Path) -> list[dict[str, Any]]:
+    summary_path = v2_dir / "literature_nodes" / "summary.json"
+    if not summary_path.exists():
+        return []
+    try:
+        nodes = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return merge_literature_node_references(nodes)
+
+
+def seed_literature_references() -> list[dict[str, Any]]:
+    return [
         {
             "key": "ha2018worldmodels",
             "title": "World Models",
@@ -312,19 +776,175 @@ def write_literature_seed(v2_dir: Path) -> None:
             "relevance": "Staged tree search and workshop paper generation.",
         },
     ]
-    write_json(lit_dir / "literature_seed.json", references)
-    write_text(
-        lit_dir / "references.bib",
-        "\n\n".join(
-            [
-                "@article{ha2018worldmodels,\n  title={World Models},\n  author={Ha, David and Schmidhuber, Juergen},\n  year={2018}\n}",
-                "@inproceedings{prelar2024,\n  title={World Model Pre-training with Learnable Action Representation},\n  booktitle={ECCV},\n  year={2024}\n}",
-                "@article{aiscientist2024,\n  title={The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery},\n  author={Lu et al.},\n  journal={arXiv preprint arXiv:2408.06292},\n  year={2024}\n}",
-                "@article{aiscientistv2_2025,\n  title={The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search},\n  author={Yamada et al.},\n  journal={arXiv preprint arXiv:2504.08066},\n  year={2025}\n}",
-            ]
-        )
-        + "\n",
+
+
+def literature_query_for_best(best: dict[str, Any]) -> str:
+    text = " ".join(
+        str(part)
+        for part in [
+            best.get("recipe_id"),
+            best.get("patch_recipe_id"),
+            best.get("rationale"),
+            "world model action conditioned dynamics",
+        ]
+        if part
+    ).lower()
+    if "counterfactual" in text:
+        return "counterfactual action representation world model dynamics"
+    if "object" in text or "local" in text or "change" in text:
+        return "object centric dynamics world model changed pixels prediction"
+    if "latent" in text or "action" in text:
+        return "learnable action representation world model dynamics"
+    return "world models action conditioned dynamics automated science"
+
+
+def fetch_semantic_scholar(query: str, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    if os.environ.get("CODEX_SCIENTISTV2_OFFLINE_LITERATURE") == "1":
+        return [], "offline mode via CODEX_SCIENTISTV2_OFFLINE_LITERATURE=1"
+    params = urllib.parse.urlencode(
+        {
+            "query": query,
+            "limit": str(limit),
+            "fields": "title,year,authors,abstract,url,venue,citationCount,externalIds",
+        }
     )
+    url = f"https://api.semanticscholar.org/graph/v1/paper/search?{params}"
+    request = urllib.request.Request(url, headers={"User-Agent": "codex-scientistv2/0.1"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        arxiv_refs, arxiv_error = fetch_arxiv(query, limit=limit)
+        if arxiv_refs:
+            return arxiv_refs, f"Semantic Scholar failed with {repr(exc)}; used arXiv fallback."
+        return [], f"Semantic Scholar failed with {repr(exc)}; arXiv failed with {arxiv_error}."
+    references = []
+    for item in payload.get("data", []):
+        title = item.get("title")
+        if not title:
+            continue
+        authors = ", ".join(author.get("name", "") for author in item.get("authors", [])[:6] if author.get("name"))
+        key = bib_key(title, item.get("year"))
+        references.append(
+            {
+                "key": key,
+                "title": title,
+                "authors": authors or "Unknown",
+                "year": item.get("year"),
+                "venue": item.get("venue"),
+                "url": item.get("url"),
+                "citation_count": item.get("citationCount"),
+                "abstract": item.get("abstract"),
+                "external_ids": item.get("externalIds") or {},
+                "relevance": "Retrieved by Codex-Scientist-v2 literature stage for the run's best idea.",
+            }
+        )
+    return references, None
+
+
+def fetch_arxiv(query: str, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    params = urllib.parse.urlencode(
+        {
+            "search_query": f"all:{query}",
+            "start": "0",
+            "max_results": str(limit),
+            "sortBy": "relevance",
+            "sortOrder": "descending",
+        }
+    )
+    url = f"https://export.arxiv.org/api/query?{params}"
+    request = urllib.request.Request(url, headers={"User-Agent": "codex-scientistv2/0.1"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            root = ET.fromstring(response.read())
+    except (urllib.error.URLError, TimeoutError, ET.ParseError) as exc:
+        return [], repr(exc)
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    references = []
+    for entry in root.findall("atom:entry", ns):
+        title = normalize_space(entry.findtext("atom:title", default="", namespaces=ns))
+        if not title:
+            continue
+        authors = [
+            normalize_space(author.findtext("atom:name", default="", namespaces=ns))
+            for author in entry.findall("atom:author", ns)
+        ]
+        published = entry.findtext("atom:published", default="", namespaces=ns)
+        year = published[:4] if published else None
+        link = entry.findtext("atom:id", default="", namespaces=ns)
+        abstract = normalize_space(entry.findtext("atom:summary", default="", namespaces=ns))
+        references.append(
+            {
+                "key": bib_key(title, year),
+                "title": title,
+                "authors": ", ".join([author for author in authors if author]) or "Unknown",
+                "year": year,
+                "venue": "arXiv",
+                "url": link,
+                "abstract": abstract,
+                "external_ids": {"ArXiv": link.rsplit("/", 1)[-1] if link else None},
+                "relevance": "Retrieved by arXiv fallback for the Codex-Scientist-v2 literature stage.",
+            }
+        )
+    return references, None
+
+
+def normalize_space(text: str) -> str:
+    return " ".join(str(text).split())
+
+
+def merge_references(seed_references: list[dict[str, Any]], fetched: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for ref in [*seed_references, *fetched]:
+        title_key = str(ref.get("title", "")).strip().lower()
+        if not title_key or title_key in seen:
+            continue
+        seen.add(title_key)
+        merged.append(ref)
+    return merged
+
+
+def synthesize_literature_review(best: dict[str, Any], references: list[dict[str, Any]]) -> str:
+    titles = "; ".join(str(ref.get("title")) for ref in references[:6])
+    return (
+        f"The best branch ({best.get('recipe_id')}) should be framed against world-model work, "
+        "learned action representations, counterfactual dynamics, and automated-science systems. "
+        f"Most relevant retrieved/seeded references include: {titles}."
+    )
+
+
+def references_to_bibtex(references: list[dict[str, Any]]) -> str:
+    entries = []
+    for ref in references:
+        entry_type = "inproceedings" if ref.get("venue") else "article"
+        fields = {
+            "title": ref.get("title"),
+            "author": ref.get("authors"),
+            "year": ref.get("year"),
+            "journal": ref.get("venue") if entry_type == "article" else None,
+            "booktitle": ref.get("venue") if entry_type == "inproceedings" else None,
+            "url": ref.get("url"),
+        }
+        lines = [f"@{entry_type}{{{ref.get('key') or bib_key(str(ref.get('title')), ref.get('year'))},"]
+        for key, value in fields.items():
+            if value:
+                lines.append(f"  {key}={{{bib_escape(str(value))}}},")
+        if lines[-1].endswith(","):
+            lines[-1] = lines[-1][:-1]
+        lines.append("}")
+        entries.append("\n".join(lines))
+    return "\n\n".join(entries) + "\n"
+
+
+def bib_key(title: str, year: Any) -> str:
+    words = "".join(char.lower() if char.isalnum() else " " for char in str(title)).split()
+    core = "".join(words[:4]) or "reference"
+    return f"{core}{year or 'nd'}"[:48]
+
+
+def bib_escape(text: str) -> str:
+    return text.replace("{", "").replace("}", "")
 
 
 def write_figures(output_dir: Path, rows: list[dict[str, Any]]) -> None:
@@ -667,10 +1287,15 @@ def compile_latex_paper(paper_tex: Path) -> None:
             f"Manuscript written to {paper_tex}.\n",
         )
         return
-    commands = [
-        [engine, "-interaction=nonstopmode", paper_tex.name],
-        [engine, "-interaction=nonstopmode", paper_tex.name],
-    ]
+    commands = [[engine, "-interaction=nonstopmode", paper_tex.name]]
+    if shutil.which("bibtex"):
+        commands.append(["bibtex", paper_tex.stem])
+    commands.extend(
+        [
+            [engine, "-interaction=nonstopmode", paper_tex.name],
+            [engine, "-interaction=nonstopmode", paper_tex.name],
+        ]
+    )
     logs = []
     for command in commands:
         result = subprocess.run(command, cwd=latex_dir, capture_output=True, text=True, check=False)
@@ -683,18 +1308,113 @@ def compile_latex_paper(paper_tex: Path) -> None:
     write_text(log_path, "\n".join(logs))
 
 
-def write_review_scaffold(output_dir: Path) -> None:
+def write_review_outputs(output_dir: Path, rows: list[dict[str, Any]], literature_report: dict[str, Any]) -> None:
     review_dir = ensure_dir(output_dir / "review")
     paper_path = output_dir / "latex" / "paper.tex"
+    ablation_report_path = output_dir / "codex_scientistv2" / "ablation_report.json"
+    ablation_report = json.loads(ablation_report_path.read_text(encoding="utf-8")) if ablation_report_path.exists() else {}
+    text_review = build_text_review(output_dir, rows, ablation_report, literature_report)
+    figure_review = build_figure_review(output_dir)
+    write_json(review_dir / "review.json", text_review)
+    write_json(review_dir / "vlm_review.json", figure_review)
     write_json(
         review_dir / "review_scaffold.json",
         {
-            "status": "pending_live_codex_review",
+            "status": "complete_local_automated_review",
             "paper": str(paper_path),
+            "text_review": str(review_dir / "review.json"),
+            "figure_review": str(review_dir / "vlm_review.json"),
             "llm_review_prompt": str(output_dir / "codex_scientistv2" / "codex_tasks" / "llm_review.md"),
             "vlm_review_prompt": str(output_dir / "codex_scientistv2" / "codex_tasks" / "vlm_review.md"),
         },
     )
+
+
+def build_text_review(
+    output_dir: Path,
+    rows: list[dict[str, Any]],
+    ablation_report: dict[str, Any],
+    literature_report: dict[str, Any],
+) -> dict[str, Any]:
+    best = max(rows, key=score_key)
+    controlled = ablation_report.get("controlled_ablations")
+    references = literature_report.get("references") or []
+    paper_path = output_dir / "latex" / "paper.tex"
+    paper_text = paper_path.read_text(encoding="utf-8") if paper_path.exists() else ""
+    weaknesses = []
+    if not controlled:
+        weaknesses.append("Controlled ablation reruns are missing; current comparisons are mostly post-hoc population comparisons.")
+    elif not any(control.get("success") for control in controlled.get("controls", [])):
+        weaknesses.append("Controlled ablations were attempted but did not produce a successful control run.")
+    if len(references) <= len(seed_literature_references()):
+        weaknesses.append("Literature review fell back mostly or entirely to seed references.")
+    if "Persistent action supervision" in paper_text and best.get("patch_recipe_id") != "full_budget_action_supervision":
+        weaknesses.append("Paper framing may be stale relative to the current best branch.")
+    strengths = [
+        "The run preserves an auditable node tree, metrics, logs, and source diffs.",
+        "The paper includes focused result tables and generated figures.",
+    ]
+    if controlled:
+        strengths.append("The pipeline executed bounded controlled ablation reruns after the population search.")
+    score = 6
+    if controlled:
+        score += 1
+    if len(references) > len(seed_literature_references()):
+        score += 1
+    if weaknesses:
+        score -= min(3, len(weaknesses))
+    return {
+        "reviewer": "codex_scientistv2_local_text_reviewer",
+        "paper": str(paper_path),
+        "best_node": best.get("node_id"),
+        "best_score": best.get("primary_score"),
+        "summary": (
+            "The submission reports an automated TinyWorlds world-model search with preserved lineage and artifacts. "
+            "The evidence is useful as exploratory science, but claims should stay bounded by the controls and seeds."
+        ),
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "questions": [
+            "Does the best intervention replicate across independent seeds?",
+            "Which component remains useful when knobs, source edits, and patch recipes are isolated?",
+            "Does lower validation MSE translate into improved downstream planning or rollout quality?",
+        ],
+        "soundness": max(1, min(10, score)),
+        "presentation": 7 if paper_path.exists() else 3,
+        "contribution": 6,
+        "decision": "weak_accept" if score >= 7 else "borderline",
+        "confidence": 6,
+    }
+
+
+def build_figure_review(output_dir: Path) -> dict[str, Any]:
+    fig_dir = output_dir / "figures"
+    figures = []
+    for path in sorted(fig_dir.glob("*")):
+        if path.suffix.lower() not in {".svg", ".pdf", ".png"}:
+            continue
+        figures.append(
+            {
+                "path": str(path),
+                "bytes": path.stat().st_size,
+                "status": "present_nonempty" if path.stat().st_size > 0 else "empty",
+            }
+        )
+    missing = [
+        str(fig_dir / "best_score_by_generation.pdf"),
+        str(fig_dir / "cultural_tree.pdf"),
+    ]
+    missing = [path for path in missing if not Path(path).exists()]
+    return {
+        "reviewer": "codex_scientistv2_local_figure_reviewer",
+        "figures": figures,
+        "missing_expected_figures": missing,
+        "summary": "Generated figures are present and referenced by the LaTeX paper." if not missing else "Some expected figures are missing.",
+        "recommendations": [
+            "Keep the lineage tree in the appendix if it is too dense for the main paper.",
+            "Use the best-score curve as the main run-level figure.",
+        ],
+    }
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:

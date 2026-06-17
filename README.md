@@ -1,97 +1,116 @@
 # Peer Critique Search
 
-Minimal v0 orchestration for testing whether communication between parallel AI-Scientist-v2 tree-search workers improves TinyWorlds research decisions more than matched self-critique.
+Peer Critique Search is an experimental harness for asking a narrow question:
 
-Codex-Scientist live multi-agent mode is intentionally supervised. It is meant
-to be launched from an active Codex session by a user who can spawn Codex
-subagents, collect their JSON action/critique/decision artifacts, and then run
-the CLI coordinator. The repo CLI owns experiment execution, workspace
-isolation, metric parsing, artifact saving, and aggregation; it does not yet
-start Codex desktop subagents by itself from a noninteractive shell process.
+> Under the same model, token, and experiment budgets, does critique from a
+> different tree-search worker improve TinyWorlds research decisions more than
+> a worker critiquing itself?
 
-The canonical autoresearch instructions for Codex-Scientist agents are in
-`docs/codex_scientist_autoresearch.md`. That document defines the research goal,
-what counts as an idea or evidence, the cultural operators, negative-result
-policy, TinyWorlds research directions, paper objective, and artifact contract.
-For longer paper-oriented runs, `docs/codex-aiscientistv2.md` shifts the brief
-toward literature-inspired world-model ideas and complete manuscript generation.
-In that mode, `paper.md` is the scientist's domain paper about the discovered
-World Models intervention; `search_report.md` is the separate meta-report about
-the Codex-Scientist search process.
+The project is inspired by AI-Scientist-v2 style agentic tree search, but it is
+not a drop-in replacement for AI-Scientist-v2. This repo focuses on controlled
+communication experiments between isolated research workers. Each worker gets
+its own TinyWorlds workspace, proposes and runs a bounded experiment, receives a
+critique signal, then chooses a follow-up experiment. The harness records enough
+artifacts to compare self-critique, peer critique, and role-conditioned peer
+critique under matched budgets.
 
-## Two Codex-Scientist Modes
+The current codebase also includes two Codex-Scientist runners for supervised
+multi-agent research runs and paper-oriented TinyWorlds discovery runs. These
+paths keep the same basic idea: preserve isolated worker state, make
+communication explicit, and write durable artifacts that can be inspected after
+the run.
 
-This repo now has two Codex-based autoresearch modes:
+## Table of Contents
 
-- `codex_scientist`: the minimal supervised multi-agent runner used for the
-  communication and cultural-evolution experiments. It runs through
-  `run_ablation.py` with `experiment.runner: codex_scientist`, keeps the node
-  artifact contract small, and focuses on isolated TinyWorlds node execution,
-  critiques, cultural operators, lineage, and aggregation.
-- `codex_scientistv2`: the expanded paper-oriented runner. It keeps the
-  cultural operators and TinyWorlds execution path, then adds AI-Scientist-v2
-  style stages: richer node storage, focused ablations, plot aggregation,
-  literature/citation seeds, Codex task prompts for literature/search/review,
-  a workshop LaTeX starter, paper writeup artifacts, and LLM/VLM reviewer
-  scaffolds. It runs through `scripts/run_codex_scientistv2.py`.
+- [What This Repo Does](#what-this-repo-does)
+- [Safety and Scope](#safety-and-scope)
+- [Requirements](#requirements)
+- [Quick Start: Local Dry Run](#quick-start-local-dry-run)
+- [Run Modes](#run-modes)
+- [Running Real TinyWorlds Experiments](#running-real-tinyworlds-experiments)
+- [Codex-Scientist Live Runs](#codex-scientist-live-runs)
+- [Codex-Scientist-v2 Paper Runs](#codex-scientist-v2-paper-runs)
+- [Aggregation](#aggregation)
+- [Artifacts](#artifacts)
+- [Frequently Asked Questions](#frequently-asked-questions)
+- [Related Docs](#related-docs)
 
-Minimal Codex-Scientist smoke:
+## What This Repo Does
+
+The harness compares three communication conditions:
+
+- `self_critique`: each worker critiques its own branch summary.
+- `peer_critique`: another worker critiques the target branch summary using the
+  same prompt and budget.
+- `peer_critique_with_roles`: another worker critiques the branch with a
+  deterministic role prior: critic, ablator, optimizer, or explorer.
+
+Communication happens exactly once: after the first experiment summaries are
+written and before the second experiment plans are generated. There is no
+pre-experiment chat, shared editing, group discussion, or post-hoc strategy
+extraction.
+
+The default reduced-compute setting uses three agents, two experiment
+meta-steps per agent, and six total TinyWorlds executions per condition. The
+code keeps budgets matched across conditions: number of agents, experiment
+count, training-step budget, runtime limit, critique template, prompt/completion
+token limits, temperature, and model backend.
+
+## Safety and Scope
+
+Some run modes execute LLM-written or LLM-selected code in copied TinyWorlds
+workspaces. Use a sandboxed environment for real runs, especially when enabling
+live Codex workers, external model calls, web-backed literature retrieval, or
+AI-Scientist-v2 integrations.
+
+The repo CLI owns experiment execution, workspace isolation, metric parsing,
+artifact saving, and aggregation. It does not currently start Codex desktop
+subagents by itself from a noninteractive shell. Supervised Codex-Scientist
+runs are meant to be launched from an active Codex session where a user can
+spawn workers, collect JSON artifacts, and let the CLI validate and execute the
+bounded actions.
+
+## Requirements
+
+For local dry runs:
+
+- Python 3.10 or newer
+- `pyyaml`
+
+For real TinyWorlds runs:
+
+- a TinyWorlds or `tinyworlds-autoresearch` checkout
+- the dependencies required by that TinyWorlds checkout
+- a model endpoint if using non-mock critique/model calls
+- Linux with NVIDIA CUDA/PyTorch for GPU-backed TinyWorlds or AI-Scientist-v2
+  experiments, depending on the external project setup
+
+For AI-Scientist-v2-backed runs:
+
+- an AI-Scientist-v2 checkout, or network access so this repo can clone
+  `https://github.com/SakanaAI/AI-Scientist-v2` into `external/AI-Scientist-v2`
+- model credentials and dependencies expected by AI-Scientist-v2
+
+Minimal local setup:
 
 ```bash
-python3 run_ablation.py \
-  --runner codex_scientist \
-  --config configs/a100_codex_scientist_smoke.yaml \
-  --condition peer_critique \
-  --num_agents 2 \
-  --tinyworlds_dir /Users/almondgod/Repositories/tinyworlds-autoresearch \
-  --output_dir runs/codex_scientist_peer_smoke \
-  --max_runtime_minutes_per_experiment 2 \
-  --max_tokens_per_critique 1000 \
-  --write_full_paper false \
-  --seed 0
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install pyyaml
 ```
 
-Codex-Scientist-v2 one-generation Mac smoke:
+If you run the external TinyWorlds or AI-Scientist-v2 paths, install their
+requirements in the same environment or in the environment used by their train
+and eval commands.
 
-```bash
-python3 scripts/run_codex_scientistv2.py \
-  --config configs/codex_scientistv2_mac.yaml
-```
+## Quick Start: Local Dry Run
 
-Codex-Scientist-v2 can also postprocess an existing cultural run without
-rerunning experiments:
+Dry-run mode is the fastest way to understand the artifact contract. It does
+not require CUDA, TinyWorlds, AI-Scientist-v2, a local model server, or paid API
+keys. It writes deterministic fake metrics and critiques so the orchestration
+can be inspected locally.
 
-```bash
-python3 scripts/run_codex_scientistv2.py \
-  --config configs/codex_scientistv2_mac.yaml \
-  --skip_experiments \
-  --output_dir runs/codex_aiscientistv2_paper_seed1 \
-  --doctrine_doc docs/codex-aiscientistv2.md
-```
-
-## Research Question
-
-Under equal model, token, and experiment budgets, does critique from another tree-search worker with different local experimental context improve TinyWorlds research decisions more than critique generated by the same worker about itself?
-
-## Worker-To-Agent Mapping
-
-This v0 does not rebuild the AI-Scientist-v2 scientist loop. It treats each bounded frontier branch as an agent with an isolated workspace, local hypothesis, experiment history, logs, metrics, code diff, and proposed next experiment. The current adapter is intentionally thin: dry-run mode verifies orchestration locally, while real mode delegates experiment execution to configured TinyWorlds train/eval commands and records setup failures clearly.
-
-## Conditions
-
-- `self_critique`: the same worker critiques its own branch summary.
-- `peer_critique`: a different worker critiques the target branch summary with the same template and budget.
-- `peer_critique_with_roles`: a different worker critiques with the same template plus a deterministic role prior: critic, ablator, optimizer, or explorer.
-
-Communication happens exactly once: after experiment 1 summaries are saved and before experiment 2 plans are generated. There is no pre-experiment communication, group chat, shared editing, or post-hoc strategy extraction.
-
-## Matched Budgets
-
-The CLI uses the same number of agents, first experiments, critique calls, second experiments, training-step budget, runtime limit, critique template, max prompt tokens, max completion tokens, and temperature across conditions. Defaults are reduced-compute v0 settings: 3 agents, 2 experiment meta-steps per agent, and 6 total TinyWorlds executions per condition.
-
-## Mac Dry-Run
-
-Dry-run mode is the local Mac path. It does not train TinyWorlds or require CUDA, AI-Scientist-v2, TinyWorlds, a local model server, or paid APIs. It generates all expected artifacts with plausible fake metrics and deterministic critiques so the orchestration can be inspected.
+Run one condition:
 
 ```bash
 python3 run_ablation.py \
@@ -102,7 +121,7 @@ python3 run_ablation.py \
   --seed 0
 ```
 
-Run all three dry-run conditions with the same output directory:
+Run all three communication conditions into one run directory:
 
 ```bash
 for condition in self_critique peer_critique peer_critique_with_roles; do
@@ -115,9 +134,47 @@ for condition in self_critique peer_critique peer_critique_with_roles; do
 done
 ```
 
-## Real Reduced-Compute TinyWorlds Run
+Aggregate the run:
 
-Real execution requires a TinyWorlds checkout and configured commands. It may require Linux with NVIDIA CUDA/PyTorch depending on TinyWorlds and AI-Scientist-v2 requirements.
+```bash
+python3 aggregate_results.py --run_dir runs/v0_dry
+```
+
+## Run Modes
+
+This repository has three main execution paths.
+
+### `tinyworlds_command`
+
+The basic runner used by `run_ablation.py`. In dry-run mode it fabricates
+metrics. In real mode it copies a TinyWorlds workspace per agent, runs the
+configured train/eval commands, parses metrics, writes critiques, and aggregates
+the results.
+
+### `ai_scientist_v2`
+
+An integration mode that delegates branch expansion to AI-Scientist-v2's
+best-first tree-search loop with a reduced config. The communication wrapper
+adds the checkpoint between two branch expansions.
+
+Use this mode only after you have a working AI-Scientist-v2 environment and
+model backend.
+
+### `codex_scientist`
+
+A supervised Codex-oriented runner. AI-Scientist-v2 remains a conceptual
+reference, but this path does not depend on AI-Scientist-v2's LLM/code loop.
+Each tree node gets an isolated TinyWorlds workspace, a canonical `runfile.py`,
+node-local memory, selected action metadata, execution logs, metrics, and a
+`node.json`.
+
+For multi-agent conditions, the coordinator can launch node experiments in
+parallel while keeping artifacts centralized.
+
+## Running Real TinyWorlds Experiments
+
+Real execution requires a TinyWorlds checkout and configured commands. The
+example below uses an OpenAI-compatible local model endpoint for critiques.
 
 ```bash
 python3 run_ablation.py \
@@ -137,17 +194,21 @@ python3 run_ablation.py \
   --seed 0
 ```
 
-If `--ai_scientist_v2_dir` is omitted in real mode, the wrapper attempts to clone [AI-Scientist-v2](https://github.com/SakanaAI/AI-Scientist-v2) into `external/AI-Scientist-v2`. If cloning fails, it exits with a setup message.
+If `--ai_scientist_v2_dir` is omitted in real mode, the wrapper attempts to
+clone AI-Scientist-v2 into `external/AI-Scientist-v2`. If cloning fails, the run
+exits with a setup message.
 
-## A100 Smoke
+### A100 Smoke Runs
 
-`configs/a100_smoke.yaml` is for integration only, not results. It runs one tiny TinyWorlds video-tokenizer update per experiment, parses `Step N Loss: ...` from logs as `reconstruction_loss`, and derives `primary_score = 1 / (1 + reconstruction_loss)`.
+`configs/a100_smoke.yaml` is for integration only, not final results. It runs a
+very small TinyWorlds update, parses `Step N Loss: ...` from logs as
+`reconstruction_loss`, and derives:
 
-Agent workspaces are copied from TinyWorlds with large generated/data directories excluded. The shared TinyWorlds `data/` directory is symlinked into each agent workspace so every agent can read the same dataset without duplicating it.
+```text
+primary_score = 1 / (1 + reconstruction_loss)
+```
 
-The A100 smoke config keeps critique completions deterministic with `mock_model: true`, but reviewer execution is wired through AI-Scientist-v2's real `perform_review()` path. Set `base_system.reviewer_model_url` to a reachable OpenAI-compatible server or set `base_system.reviewer_backend: ai_scientist` with a supported model and the required API key. If the reviewer cannot run, `review.json` stores the failure and traceback while the orchestration continues.
-
-Run self-critique first:
+Run the self-critique smoke first:
 
 ```bash
 python3 run_ablation.py \
@@ -181,13 +242,25 @@ python3 run_ablation.py \
   --seed 0
 ```
 
-Stop after this peer smoke unless explicitly running the full ablation.
+Stop after this peer smoke unless you are intentionally running the full
+ablation.
 
-## AI-Scientist-v2 Branch Smoke
+### AI-Scientist-v2 Branch Smoke
 
-`configs/a100_ai_scientist_smoke.yaml` opts into `experiment.runner: ai_scientist_v2`. In this mode each communication meta-step delegates the branch expansion to AI-Scientist-v2's BFTS loop with a reduced config: one worker, one draft, one step, no report generation. The communication wrapper only adds the checkpoint between two AI-Scientist branch expansions.
+`configs/a100_ai_scientist_smoke.yaml` opts into:
 
-This mode expects the TinyWorlds autoresearch harness, not the full TinyWorlds repo:
+```yaml
+experiment:
+  runner: ai_scientist_v2
+```
+
+In this mode, each communication meta-step delegates branch expansion to
+AI-Scientist-v2's best-first tree-search loop with a reduced config: one
+worker, one draft, one step, and no report generation. The communication
+wrapper only adds the checkpoint between two AI-Scientist branch expansions.
+
+This mode expects the TinyWorlds autoresearch harness, not the full TinyWorlds
+repo:
 
 ```text
 /workspace/tinyworlds-autoresearch/train.py
@@ -195,7 +268,12 @@ This mode expects the TinyWorlds autoresearch harness, not the full TinyWorlds r
 /workspace/tinyworlds-autoresearch/setup.py
 ```
 
-Run only after a model backend is available for AI-Scientist-v2 code/feedback calls. The default config uses Ollama-style model names (`ollama/qwen3:32b`) because AI-Scientist-v2's tree-search backend supports OpenAI and Ollama paths directly.
+Run only after a model backend is available for AI-Scientist-v2 code and
+feedback calls. The default config uses Ollama-style model names because
+AI-Scientist-v2's tree-search backend supports OpenAI and Ollama paths
+directly.
+
+Start with self-critique:
 
 ```bash
 python3 run_ablation.py \
@@ -211,7 +289,7 @@ python3 run_ablation.py \
   --seed 0
 ```
 
-Then run the 2-agent peer smoke and stop:
+Then run the two-agent peer smoke:
 
 ```bash
 python3 run_ablation.py \
@@ -227,23 +305,41 @@ python3 run_ablation.py \
   --seed 0
 ```
 
-## Codex-Scientist Live Multi-Agent Smoke
+## Codex-Scientist Live Runs
 
-`configs/a100_codex_scientist_smoke.yaml` opts into `experiment.runner: codex_scientist`.
-This path is the first scaffold for a Codex-Scientist fork: AI-Scientist-v2 remains
-a reference for tree-search concepts, but the runtime does not depend on
-AI-Scientist-v2's LLM/code-generation loop. Each tree node gets an isolated
-TinyWorlds workspace, a canonical `runfile.py`, node-local memory, selected
-TinyWorlds action metadata, execution logs, metrics, and a `node.json`.
-For multi-agent conditions, the main coordinator launches node experiments for
-each step concurrently up to `experiment.codex_scientist_parallel_workers`, so
-workers can explore tree nodes in parallel while artifacts stay centralized.
-For supervised live-agent runs, spawned Codex subagents can choose node actions,
-write critiques, and select the second-step action through override artifact
-directories. The coordinator validates action choices against the TinyWorlds
-knob allowlist before execution.
+`configs/a100_codex_scientist_smoke.yaml` opts into:
 
-Action override files live in `experiment.codex_scientist_action_overrides_dir`:
+```yaml
+experiment:
+  runner: codex_scientist
+```
+
+The canonical instructions for supervised Codex-Scientist agents are in
+`docs/codex_scientist_autoresearch.md`. That document defines the research
+goal, evidence standards, cultural operators, negative-result policy,
+TinyWorlds directions, paper objective, and artifact contract.
+
+Minimal smoke:
+
+```bash
+python3 run_ablation.py \
+  --runner codex_scientist \
+  --config configs/a100_codex_scientist_smoke.yaml \
+  --condition peer_critique \
+  --num_agents 2 \
+  --tinyworlds_dir /Users/almondgod/Repositories/tinyworlds-autoresearch \
+  --output_dir runs/codex_scientist_peer_smoke \
+  --max_runtime_minutes_per_experiment 2 \
+  --max_tokens_per_critique 1000 \
+  --write_full_paper false \
+  --seed 0
+```
+
+Live override files let supervised Codex workers choose bounded actions,
+critiques, and second-step decisions.
+
+Action override files live in
+`experiment.codex_scientist_action_overrides_dir`:
 
 ```text
 agent_0_step_1.json
@@ -252,7 +348,7 @@ agent_0_step_2.json
 agent_1_step_2.json
 ```
 
-Each action file is JSON:
+Example action override:
 
 ```json
 {
@@ -262,149 +358,102 @@ Each action file is JSON:
 }
 ```
 
-Critique override files live in
-`experiment.codex_scientist_critique_overrides_dir`. The coordinator accepts
-plain `.md`/`.txt` critique text or structured JSON. Supported names include:
-
-```text
-agent_0_critique.md
-agent_1_to_agent_0.json
-peer_critique_agent_0_critique.txt
-```
-
-Structured critique JSON can include:
-
-```json
-{
-  "author_id": "agent_1",
-  "target_id": "agent_0",
-  "critique": "The first branch needs a controlled action-conditioning follow-up...",
-  "recommended_next_action": "Set use_env_actions=1 and action_supervision_weight=0.5.",
-  "backend": "live_codex_subagent"
-}
-```
-
-Decision override files live in
-`experiment.codex_scientist_decision_overrides_dir` and are named
-`agent_0_decision.json` or `agent_0_step_2_decision.json`. They may include
-`decision_changed`, `change_type`, `reason`, and `revised_experiment_plan`.
-If no live Codex override exists, the CLI falls back to bounded local
-Codex-Scientist critique/decision logic so unattended smoke runs still work.
-
-The current reusable CLI implementation is the durable artifact contract for
-supervised live Codex operation. It writes worker and critic task prompts under
-the run artifacts so a supervising Codex session can assign those exact node
-tasks to live subagents. Until a noninteractive Codex backend exists, live
-subagent authorship enters the CLI through these override files.
-
-Action overrides may now include one curated source patch recipe in addition to
-validated TinyWorlds knobs. These recipes are intentionally bounded: the
-coordinator applies them only inside each per-node isolated TinyWorlds workspace,
+Action overrides may include one bounded source patch recipe. The coordinator
+applies these patches only inside the per-node isolated TinyWorlds workspace,
 writes `patch_result.json` and `code_diff.patch`, and never modifies the
-original TinyWorlds checkout. This lets live Codex workers test architecture or
-training-loop ideas without opening the action space to arbitrary repository
-edits.
+original TinyWorlds checkout.
 
 Supported patch recipes:
 
-- `baseline_no_patch`: no source edit; use knobs only.
-- `dynamics_first_schedule`: enter action/dynamics training phases earlier in short runs.
-- `action_grad_dynamics`: allow action-tokenizer gradients during dynamics training.
-- `smooth_l1_dynamics_pixel`: use smooth-L1 for dynamics pixel reconstruction.
-- `sharpen_change_weights`: focus patch-change weights more strongly on changing patches.
-- `full_budget_action_supervision`: keep action supervision active for the whole budget when enabled.
+- `baseline_no_patch`
+- `dynamics_first_schedule`
+- `action_grad_dynamics`
+- `smooth_l1_dynamics_pixel`
+- `sharpen_change_weights`
+- `full_budget_action_supervision`
 
-Example action override with a code recipe:
+For cultural-evolution runs, every step-2 action should declare its inheritance
+operator:
 
-```json
-{
-  "recipe_id": "agent_0_step_2_robust_dynamics_loss",
-  "patch_recipe_id": "smooth_l1_dynamics_pixel",
-  "inheritance_mode": "mutate",
-  "source_agent_ids": ["agent_0"],
-  "source_node_ids": ["peer_critique_agent_0_node_1"],
-  "knobs": {"dynamics_pixel_loss_weight": 1.0},
-  "rationale": "Test whether a robust reconstruction loss improves short-budget dynamics learning."
-}
-```
-
-For cultural-evolution runs, every step-2 action should also declare its
-inheritance operator:
-
-- `copy`: reuse another worker's successful recipe.
-- `mutate`: alter one prior recipe.
-- `recombine`: combine two or more prior recipes.
-- `reject`: avoid a poor prior recipe and explain the replacement.
-- `invent`: introduce a new recipe not derived from visible branches.
+- `copy`
+- `mutate`
+- `recombine`
+- `reject`
+- `invent`
 
 Peer conditions write `population_summary_step_1.json` and include a compact
 population scoreboard in critique prompts when
-`experiment.codex_scientist_population_context: true`. Aggregation records
-`cultural_operator`, source agents/nodes, copied/recombined/rejected recipes,
-and `cross_agent_transfer`, so the experiment can measure information transfer
-directly rather than only final score.
+`experiment.codex_scientist_population_context: true`.
 
-Run self-critique first:
+## Codex-Scientist-v2 Paper Runs
 
-```bash
-python3 run_ablation.py \
-  --condition self_critique \
-  --num_agents 1 \
-  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
-  --output_dir runs/a100_codex_self_smoke \
-  --config configs/a100_codex_scientist_smoke.yaml \
-  --max_runtime_minutes_per_experiment 10 \
-  --max_tokens_per_critique 1000 \
-  --write_full_paper false \
-  --seed 0
-```
+`codex_scientistv2` is the expanded paper-oriented runner. It keeps the cultural
+operators and TinyWorlds execution path, then adds AI-Scientist-v2 style stages:
+richer node storage, multiagent literature-review nodes, focused ablations, plot
+aggregation, live literature retrieval with BibTeX refresh, Codex task prompts,
+LaTeX manuscript generation, compile attempts, and automated text/figure
+reviews.
 
-If self passes, run the 2-agent peer smoke and stop:
+For longer paper-oriented runs, `docs/codex-aiscientistv2.md` shifts the brief
+toward literature-inspired world-model ideas and complete manuscript
+generation. In that mode, `paper.md` is the scientist's domain paper about the
+discovered World Models intervention, and `search_report.md` is the separate
+meta-report about the Codex-Scientist search process.
+
+One-generation Mac smoke:
 
 ```bash
-python3 run_ablation.py \
-  --condition peer_critique \
-  --num_agents 2 \
-  --tinyworlds_dir /workspace/tinyworlds-autoresearch \
-  --output_dir runs/a100_codex_peer_smoke \
-  --config configs/a100_codex_scientist_smoke.yaml \
-  --max_runtime_minutes_per_experiment 10 \
-  --max_tokens_per_critique 1000 \
-  --write_full_paper false \
-  --seed 0
+python3 scripts/run_codex_scientistv2.py \
+  --config configs/codex_scientistv2_mac.yaml
 ```
 
-Every Codex-Scientist node writes:
+Postprocess an existing cultural run without rerunning experiments:
 
-- `codex_scientist/nodes/{node_id}/node.json`
-- `action.json`
-- `worker_task.md`
-- `memory.md`
-- `metrics.json`
-- `logs.txt`
-- `patch_result.json`
-- `code_diff.patch` when a source patch recipe changed files
-- `branch_expansion.json`
+```bash
+python3 scripts/run_codex_scientistv2.py \
+  --config configs/codex_scientistv2_mac.yaml \
+  --skip_experiments \
+  --output_dir runs/codex_aiscientistv2_paper_seed1 \
+  --doctrine_doc docs/codex-aiscientistv2.md
+```
 
-The top-level agent artifacts remain compatible with aggregation.
+By default, a non-`--skip_experiments` `codex_scientistv2` run executes:
+
+- one initial literature-review node per agent, run in parallel through
+  Semantic Scholar with arXiv fallback
+- literature-node summaries exposed as the first experimental generation's
+  context
+- configured cultural population search
+- bounded controlled ablations around the best branch
+- final best-idea literature retrieval through Semantic Scholar with arXiv
+  fallback, merged with the initial literature-node references
+- figure and tree generation
+- `latex/paper.tex`, `latex/references.bib`, and `latex/compile.log`
+- local automated paper and figure reviews
 
 ## Aggregation
 
-```bash
-python3 aggregate_results.py --run_dir runs/v0_dry
-```
-
-Aggregation writes:
+Aggregation writes three top-level outputs:
 
 - `results.csv`
 - `results.json`
 - `summary.md`
 
-It compares useful decision changes, fraction decision changed, fraction later helped, communication value, TinyWorlds metric improvement, final score, unsupported claim count, duplicate experiment rate, ablation quality, failure avoidance, success rate, reviewer score, runtime, and token usage.
+Run:
+
+```bash
+python3 aggregate_results.py --run_dir runs/v0_dry
+```
+
+The aggregation compares useful decision changes, fraction of decisions
+changed, fraction later helped, communication value, TinyWorlds metric
+improvement, final score, unsupported claim count, duplicate experiment rate,
+ablation quality, failure avoidance, success rate, reviewer score, runtime, and
+token usage.
 
 ## Artifacts
 
-Each agent writes:
+Each standard ablation agent writes:
 
 - `config.yaml`
 - `prompts/`
@@ -433,3 +482,62 @@ runs/{run_id}/{condition}/agent_{i}/workspace/
 runs/{run_id}/{condition}/agent_{i}/artifacts/
 runs/{run_id}/global/
 ```
+
+Every Codex-Scientist node writes:
+
+- `codex_scientist/nodes/{node_id}/node.json`
+- `action.json`
+- `worker_task.md`
+- `memory.md`
+- `metrics.json`
+- `logs.txt`
+- `patch_result.json`
+- `code_diff.patch` when a source patch recipe changed files
+- `branch_expansion.json`
+
+## Frequently Asked Questions
+
+### Is this a full AI-Scientist-v2 implementation?
+
+No. The core ablation harness uses AI-Scientist-v2 as a reference point for
+tree-search research automation, but the main question is about communication
+between workers. The `ai_scientist_v2` runner can delegate branch expansion to
+AI-Scientist-v2 when that external environment is available.
+
+### Can I run this on a Mac?
+
+Yes for dry runs and some Codex-Scientist-v2 postprocessing paths. Real
+TinyWorlds training may require Linux, CUDA, and the dependencies of your
+TinyWorlds checkout.
+
+### Why do dry runs produce metrics without TinyWorlds?
+
+Dry runs are for validating orchestration, artifact structure, aggregation, and
+prompt plumbing. They are not scientific results.
+
+### What should I run first on a GPU machine?
+
+Start with the one-agent self-critique smoke. If it passes, run the two-agent
+peer-critique smoke. Only then scale to full ablations.
+
+### Where do live Codex worker decisions enter the run?
+
+Through override directories configured in YAML. The CLI accepts bounded action
+JSON, critique text or JSON, and decision JSON. If no live override exists, the
+coordinator falls back to local Codex-Scientist critique/decision logic for
+unattended smoke runs.
+
+### Does the CLI modify my original TinyWorlds checkout?
+
+The Codex-Scientist patch recipes are applied only inside isolated per-node
+workspaces. The original TinyWorlds checkout is copied or referenced as a
+source and is not patched by those recipes.
+
+## Related Docs
+
+- `docs/codex_scientist_autoresearch.md`: canonical supervised
+  Codex-Scientist agent instructions.
+- `docs/codex-aiscientistv2.md`: paper-oriented Codex-Scientist-v2 doctrine.
+- `docs/live_seed7_peer_tree.md`: example live peer-tree notes.
+- `docs/code_recipe_experiment_writeup.md`: notes on source patch recipes and
+  experiment writeups.

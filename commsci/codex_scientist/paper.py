@@ -319,6 +319,7 @@ def build_domain_latex(
     generation_8 = best_by_generation[8].get("primary_score") if len(best_by_generation) > 8 else None
     generation_12 = best_by_generation[12].get("primary_score") if len(best_by_generation) > 12 else None
     mean_score = fmt(mean(scores)) if scores else "N/A"
+    theme = paper_theme(best, rows)
     return r"""\documentclass[10pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{times}
@@ -339,7 +340,7 @@ def build_domain_latex(
   xrightmargin=0.5em
 }
 
-\title{Persistent Action Supervision Improves Short-Budget TinyWorlds World Models}
+\title{""" + latex_escape(theme["title"]) + r"""}
 \author{Codex-Scientist-v2}
 \date{}
 
@@ -347,36 +348,14 @@ def build_domain_latex(
 \maketitle
 
 \begin{abstract}
-Short-budget world-model training must learn visual prediction and action
-grounding before there is enough optimization time for elaborate imagination
-objectives. We study this problem in TinyWorlds, a compact action-conditioned
-world-model testbed. A 45-candidate automated research run discovered that the
-strongest intervention was not a larger model or a complex counterfactual loss,
-but a training-loop change: keep environment-action supervision active for the
-entire short training budget. The best candidate reached primary score
+""" + latex_escape(theme["abstract_prefix"]) + r""" The best candidate reached primary score
 """ + latex_escape(fmt(best.get("primary_score"))) + r""" and validation MSE
-""" + latex_escape(fmt(best.get("val_mse"))) + r""", outperforming more complex
-latent-imagination and counterfactual-action variants generated in the same run.
-These results suggest a practical ordering principle for small world models:
-stabilize action grounding before adding high-variance self-consistency
-objectives.
+""" + latex_escape(fmt(best.get("val_mse"))) + r""". """ + latex_escape(theme["abstract_suffix"]) + r"""
 \end{abstract}
 
 \section{Introduction}
 
-World models are useful when they predict how observations change under actions.
-In small-data or short-budget regimes, optimization pressure is scarce: the
-learner must build visual codes, action representations, and transition dynamics
-at the same time. A natural response is to add richer auxiliary losses, such as
-imagined-rollout consistency or counterfactual action contrast. Our results
-point to a simpler failure mode. If action supervision is removed too early, the
-dynamics model can optimize reconstruction while only weakly using the action
-signal.
-
-This paper asks whether persistent action supervision improves short-budget
-TinyWorlds world-model training. The answer in this exploratory run is yes: the
-best candidate used full-budget action supervision with environment-action
-conditioning, moderate pixel dynamics loss, and motion loss.
+""" + latex_escape(theme["introduction"]) + r"""
 
 \section{Related Work}
 
@@ -393,9 +372,7 @@ search system itself.
 
 \section{Method}
 
-The discovered intervention keeps supervised action grounding active throughout
-the run. In the base training loop, action supervision is active only for an
-initial window; the best candidate changed the schedule as follows:
+""" + latex_escape(theme["method_intro"]) + r"""
 
 \begin{lstlisting}
 """ + latex_lst(code_diff.strip()) + r"""
@@ -413,13 +390,7 @@ which produced these environment overrides:
 """ + latex_lst(json.dumps(env, indent=2, sort_keys=True)) + r"""
 \end{lstlisting}
 
-The method combines three pressures: action-conditioned dynamics prediction,
-decoded future reconstruction with a modest pixel loss, and persistent
-supervised alignment to observed environment actions. The intervention is
-intentionally small. It changes the schedule of action supervision rather than
-adding a new module, which makes it a useful baseline for testing whether more
-elaborate action-representation mechanisms are actually helping under short
-compute budgets.
+""" + latex_escape(theme["method_summary"]) + r"""
 
 \section{Experimental Setup}
 
@@ -440,7 +411,7 @@ metric.
     \fbox{\parbox{0.72\linewidth}{Generated figure missing:
     \texttt{../figures/best\_score\_by\_generation.pdf}.}}
   }
-  \caption{Best primary score by generation in the 45-candidate TinyWorlds run.}
+\caption{Best primary score by generation in the TinyWorlds run.}
   \label{fig:best-score}
 \end{figure}
 
@@ -468,10 +439,7 @@ MSE """ + latex_escape(fmt(best.get("val_mse"))) + r""". The weakest recipe was
 \subsection{Focused Ablations}
 
 Table~\ref{tab:ablations} compares the best branch against initial baselines,
-negative-result controls, and close variants. The strongest variants were
-simpler than the most ambitious generated ideas. The best result came from
-rejecting accumulated edit complexity and preserving action supervision for the
-full budget.
+negative-result controls, and close variants. """ + latex_escape(theme["ablation_summary"]) + r"""
 
 \begin{table}[t]
 \centering
@@ -503,10 +471,7 @@ Rank & Recipe & Operator / patch & Score & Val. MSE \\
 
 \subsection{Aggregate Families}
 
-The patch-family summary in Table~\ref{tab:patch-families} shows that
-full-budget action supervision produced the best single candidate. The
-operator-family summary in Table~\ref{tab:operator-families} separates this
-effect from the cultural operator used to introduce or preserve the idea.
+""" + latex_escape(theme["aggregate_summary"]) + r"""
 
 \begin{table}[t]
 \centering
@@ -536,45 +501,28 @@ Operator & N & Best score & Mean score \\
 \label{tab:operator-families}
 \end{table}
 
-Similar recovery variants later reached primary scores of
-""" + latex_escape(fmt(generation_8)) + r""" and """ + latex_escape(fmt(generation_12)) + r""".
-By contrast, candidates built around extra imagination-cycle or counterfactual
-machinery generally remained below the best full-supervision branch.
-""" + latex_escape(child_sentence) + r"""
+""" + latex_escape(theme["lineage_result"].format(
+        generation_8=fmt(generation_8),
+        generation_12=fmt(generation_12),
+        child_sentence=child_sentence,
+    )) + r"""
 
 \section{Discussion}
 
-Persistent action supervision likely helps because the model does not have time
-to bootstrap a stable action representation before the dynamics phase dominates.
-Keeping the action signal present throughout training supplies a stable anchor:
-the dynamics model can learn next-state prediction while action labels remain
-available as a grounded explanatory variable.
-
-The negative result is equally important. The candidate population tried more
-ambitious mechanisms, including latent imagination-cycle consistency and
-counterfactual action contrast. Those ideas are attractive, but under this
-budget they added optimization demands before the base action-conditioned model
-was reliable. The result suggests a staged recipe for small world models:
-establish persistent action grounding, verify predictive dynamics quality, and
-only then introduce imagination or counterfactual constraints.
+""" + latex_escape(theme["discussion"]) + r"""
 
 \section{Limitations}
 
 This is an exploratory automated run, not a final benchmark. The experiment used
 one TinyWorlds setting, a short runtime, and a generated candidate population.
 The best branch should be retested across independent seeds, longer budgets,
-larger TinyWorlds configurations, and direct controls that isolate action
-supervision duration from action supervision weight. The current evidence is
+larger TinyWorlds configurations, and direct controls that isolate the apparent
+winning component from correlated knobs and source edits. The current evidence is
 predictive, not behavioral: we have not yet shown improved downstream planning.
 
 \section{Conclusion}
 
-The best discovered TinyWorlds world-model intervention was persistent action
-supervision. In short-budget training, a small schedule change outperformed more
-complex generated action-representation ideas. This supports a conservative but
-useful principle: before asking a compact world model to learn rich imagined
-counterfactuals, keep its action grounding active long enough for dynamics
-learning to use it.
+""" + latex_escape(theme["conclusion"]) + r"""
 
 \bibliographystyle{plain}
 \bibliography{references}
@@ -665,6 +613,223 @@ def build_top_variant_table(rows: list[dict[str, Any]], best: dict[str, Any], li
 def best_matching(rows: list[dict[str, Any]], recipe_prefix: str) -> dict[str, Any] | None:
     matches = [row for row in rows if str(row.get("recipe_id", "")).startswith(recipe_prefix)]
     return max(matches, key=score_key) if matches else None
+
+
+def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, str]:
+    recipe = str(best.get("recipe_id", "")).lower()
+    patch = str(best.get("patch_recipe_id", "")).lower()
+    rationale = str(best.get("rationale", "")).lower()
+    run_text = " ".join(str(row.get("recipe_id", "")) + " " + str(row.get("rationale", "")) for row in rows).lower()
+    if patch == "full_budget_action_supervision":
+        return {
+            "title": "Persistent Action Supervision Improves Short-Budget TinyWorlds World Models",
+            "abstract_prefix": (
+                "Short-budget world-model training must learn visual prediction and action grounding before there is enough "
+                "optimization time for elaborate imagination objectives. We study this problem in TinyWorlds, where the strongest "
+                "candidate kept environment-action supervision active for the entire training budget."
+            ),
+            "abstract_suffix": (
+                "These results suggest a practical ordering principle for small world models: stabilize action grounding before "
+                "adding high-variance self-consistency objectives."
+            ),
+            "introduction": (
+                "World models are useful when they predict how observations change under actions. In short-budget regimes, "
+                "optimization pressure is scarce: the learner must build visual codes, action representations, and transition "
+                "dynamics at the same time. This paper asks whether persistent action supervision improves TinyWorlds world-model "
+                "training. The exploratory answer is yes: the best candidate kept supervised action grounding active throughout "
+                "the run."
+            ),
+            "method_intro": (
+                "The discovered intervention keeps supervised action grounding active throughout the run. In the base training loop, "
+                "action supervision is active only for an initial window; the best candidate changed the schedule as follows:"
+            ),
+            "method_summary": (
+                "The method combines action-conditioned dynamics prediction, decoded future reconstruction, and persistent supervised "
+                "alignment to observed environment actions. It is intentionally small: it changes the training schedule rather than "
+                "adding a new module."
+            ),
+            "ablation_summary": "The best result came from preserving action supervision for the full budget.",
+            "aggregate_summary": (
+                "The patch-family summary in Table~\\ref{tab:patch-families} shows that full-budget action supervision produced the "
+                "best single candidate. The operator-family summary separates this effect from the cultural operator used to introduce it."
+            ),
+            "lineage_result": (
+                "Similar recovery variants later reached primary scores of {generation_8} and {generation_12}. "
+                "{child_sentence}"
+            ),
+            "discussion": (
+                "Persistent action supervision likely helps because the model does not have time to bootstrap a stable action "
+                "representation before the dynamics phase dominates. Keeping the action signal present throughout training supplies "
+                "a stable anchor while dynamics learning proceeds."
+            ),
+            "conclusion": (
+                "The best discovered TinyWorlds intervention was persistent action supervision. In short-budget training, this small "
+                "schedule change outperformed more complex generated action-representation ideas."
+            ),
+        }
+    if "object" in run_text or "local" in run_text:
+        return {
+            "title": "Object-Local Robust Dynamics Improve Short-Budget TinyWorlds Prediction",
+            "abstract_prefix": (
+                "We ran a fresh Codex-Scientist-v2 tree whose initial context came from multiagent literature-review nodes on "
+                "world models, action-conditioned dynamics, and object-centric prediction. The search targeted object-local "
+                "transition learning: changed pixels, motion priors, and robust decoded future reconstruction."
+            ),
+            "abstract_suffix": (
+                "The strongest branch copied a robust object-curriculum recombination, suggesting that short-budget TinyWorlds "
+                "models may benefit more from localized transition pressure than from more elaborate action-abstraction objectives."
+            ),
+            "introduction": (
+                "World-model errors are rarely uniform across an observation. In TinyWorlds, much of the frame can be static while "
+                "a small set of controllable regions carries the transition signal. This paper studies whether a short-budget world "
+                "model improves when training pressure is localized toward changed or object-like regions. Unlike earlier runs that "
+                "centered persistent action supervision or counterfactual action abstractions, this run began with multiagent "
+                "literature-review nodes and explored object-local dynamics, robust reconstruction, and dynamics-first curricula."
+            ),
+            "method_intro": (
+                "The best branch used a robust Smooth-L1 dynamics-pixel recipe with an object-local curriculum inherited through "
+                "copy after a successful recombination. The recorded source diff, if any, is:"
+            ),
+            "method_summary": (
+                "The method combines robust decoded future reconstruction with knobs that emphasize changed pixels and a shallow "
+                "dynamics-first curriculum. It does not add a large module; it reallocates the short training budget toward local "
+                "transition errors."
+            ),
+            "ablation_summary": (
+                "The controlled reruns show that the patch-only condition is substantially weaker under the short ablation budget, "
+                "while the knobs-only condition remains competitive. This points to the localized training schedule and weights as "
+                "the likely active ingredients."
+            ),
+            "aggregate_summary": (
+                "The patch-family summary in Table~\\ref{tab:patch-families} compares robust dynamics, sharpened change weighting, "
+                "and dynamics-first curricula. The operator-family summary tests whether copied or recombined object-local variants "
+                "were favored by the cultural search."
+            ),
+            "lineage_result": (
+                "The winning branch copied the prior generation's robust object-curriculum recombination, preserving the same "
+                "source lineage rather than adding another novelty step. {child_sentence}"
+            ),
+            "discussion": (
+                "The result is consistent with a simple hypothesis: when compute is scarce, reducing error on locally changing regions "
+                "can be easier than learning a richer global latent action abstraction. The literature-node stage helped frame the "
+                "search around object-centric dynamics, but the current evidence is still exploratory and needs seed replication."
+            ),
+            "conclusion": (
+                "This third paper run identifies object-local robust dynamics as the strongest TinyWorlds candidate. The next direct "
+                "test is to replicate the copied robust object-curriculum branch across seeds and isolate changed-pixel weighting, "
+                "robust pixel loss, and curriculum depth."
+            ),
+        }
+    if "fresh_" in recipe or "motion" in recipe or "change" in recipe or "motion" in rationale or "change" in rationale:
+        return {
+            "title": "Motion-Calibrated Robust Dynamics Improve a Fresh TinyWorlds World-Model Search",
+            "abstract_prefix": (
+                "We ran a fresh Codex-Scientist-v2 tree with no previous-run action schedule or summaries, targeting uncertainty, "
+                "change-focused dynamics, robust decoded reconstruction, and motion calibration in TinyWorlds. The strongest branch "
+                "was a motion-calibrated Smooth-L1 dynamics-pixel variant rather than an action-supervision or counterfactual-action method."
+            ),
+            "abstract_suffix": (
+                "The result suggests that, under short compute budgets, robust reconstruction and motion-aware calibration may be a more "
+                "reliable next research direction than adding high-variance action-abstraction objectives."
+            ),
+            "introduction": (
+                "This paper reports a fresh TinyWorlds search whose initial context deliberately avoided the previous action-supervision "
+                "and counterfactual-action runs. The new population explored change-weighted dynamics, robust pixel reconstruction, "
+                "earlier dynamics curricula, and motion calibration. The central question is whether short-budget world models benefit "
+                "more from focusing loss on changing/moving regions than from adding richer action abstractions."
+            ),
+            "method_intro": (
+                "The best branch used a robust Smooth-L1 dynamics-pixel objective with motion calibration knobs. No new source edit was "
+                "needed beyond the selected patch recipe; the branch changed the training pressure through the following recorded diff, "
+                "if any:"
+            ),
+            "method_summary": (
+                "The method emphasizes decoded future robustness and motion-aware calibration: dynamics pixel loss is made robust, and "
+                "motion losses focus the short training budget on changes that matter for future prediction."
+            ),
+            "ablation_summary": (
+                "The best branch emerged late in the fresh tree and should be read as exploratory evidence for motion-calibrated robust "
+                "dynamics, not as proof of a universal improvement."
+            ),
+            "aggregate_summary": (
+                "The patch-family summary in Table~\\ref{tab:patch-families} compares robust dynamics, change weighting, and curriculum "
+                "families. The operator-family summary shows whether copy, mutate, recombine, reject, or invent produced the strongest branch."
+            ),
+            "lineage_result": (
+                "The winning branch arose from same-agent mutation after earlier change/robustness trials. {child_sentence}"
+            ),
+            "discussion": (
+                "The fresh run points toward a different hypothesis than the previous action-supervision paper. Motion-calibrated robust "
+                "dynamics may work because short-budget models can improve predictive quality by allocating loss to moving or changing "
+                "regions while avoiding brittle objectives that require well-formed latent action abstractions. The controlled ablations "
+                "remain short and should be treated as stress tests rather than final evidence."
+            ),
+            "conclusion": (
+                "In this fresh tree, the best TinyWorlds branch was motion-calibrated robust dynamics. The result motivates a focused "
+                "follow-up: replicate this branch across seeds and isolate whether motion loss, robust pixel loss, or their combination "
+                "drives the gain."
+            ),
+        }
+    if "counterfactual" in run_text or "latent" in run_text or "imagination" in run_text:
+        return {
+            "title": "Counterfactual Action Objectives Underperform Robust Reconstruction in Short-Budget TinyWorlds",
+            "abstract_prefix": (
+                "We ran a targeted TinyWorlds search over latent-action teachers, imagination-cycle consistency, and counterfactual "
+                "action discrimination. The strongest result did not come from the most conceptually ambitious action-abstraction "
+                "mechanism; it came from a simpler robust reconstruction baseline or recovery branch."
+            ),
+            "abstract_suffix": (
+                "These negative results suggest that counterfactual action objectives are promising but too optimization-hungry for the "
+                "current short-budget setting."
+            ),
+            "introduction": (
+                "Learned action abstractions are attractive for world models because they promise compact causal operators for predicting "
+                "future states. This run tests that idea directly through latent teachers, imagination-cycle losses, and wrong-action "
+                "counterfactual hinges. The key result is negative: these mechanisms did not clearly beat simpler robust reconstruction."
+            ),
+            "method_intro": (
+                "The population tested latent and counterfactual action objectives. The best branch's recorded source diff, if any, is:"
+            ),
+            "method_summary": (
+                "The method family asks whether imagined next frames should re-encode to their generating action and whether wrong "
+                "actions should fail to explain the same target. Under the short budget, this added identifiability pressure often "
+                "competed with reconstruction."
+            ),
+            "ablation_summary": (
+                "The focused comparisons show that the conceptually ambitious action-abstraction branches underperformed simpler robust "
+                "reconstruction or recovery variants."
+            ),
+            "aggregate_summary": (
+                "The patch-family and operator summaries separate robust reconstruction, baseline edits, and recombination/copy effects "
+                "within the targeted counterfactual-action search."
+            ),
+            "lineage_result": (
+                "The action-abstraction lineage produced useful negative evidence, but did not surpass the simpler robust branch. "
+                "{child_sentence}"
+            ),
+            "discussion": (
+                "The negative result is scientifically useful. Counterfactual and imagination-cycle losses may require a stronger base "
+                "dynamics model before they become helpful. Under a short budget, they add optimization pressure before visual prediction "
+                "and transition modeling are stable."
+            ),
+            "conclusion": (
+                "This targeted search did not support counterfactual action objectives as an immediate improvement for short-budget "
+                "TinyWorlds. A staged approach should first establish robust predictive dynamics, then add action-identifiability losses."
+            ),
+        }
+    return {
+        "title": "A Fresh Codex-Scientist-v2 TinyWorlds Search Identifies a Short-Budget World-Model Baseline",
+        "abstract_prefix": "We ran a fresh Codex-Scientist-v2 TinyWorlds tree and evaluated candidate world-model interventions under a short budget.",
+        "abstract_suffix": "The result should be interpreted as exploratory evidence for the best branch's design choices.",
+        "introduction": "This paper reports a fresh automated TinyWorlds search and analyzes the best discovered world-model intervention.",
+        "method_intro": "The best branch used the following recorded source diff, if any:",
+        "method_summary": "The method is defined by the recorded action, knobs, patch recipe, and source diff preserved in the run artifacts.",
+        "ablation_summary": "The focused comparisons summarize the best branch against nearby alternatives.",
+        "aggregate_summary": "The aggregate tables summarize patch-family and operator-family performance.",
+        "lineage_result": "{child_sentence}",
+        "discussion": "The result is exploratory and should be followed by controlled replication and component isolation.",
+        "conclusion": "The fresh run identifies a candidate intervention for follow-up TinyWorlds experiments.",
+    }
 
 
 def latex_ablation_rows(rows: list[dict[str, Any]], best: dict[str, Any]) -> str:

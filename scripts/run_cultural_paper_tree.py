@@ -42,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--action_timeout_seconds", type=float, default=3600)
     parser.add_argument("--init_default_actions", action="store_true")
     parser.add_argument("--doctrine_doc", default="docs/codex-aiscientistv2.md")
+    parser.add_argument("--literature_context_file", default=None)
     return parser.parse_args()
 
 
@@ -50,9 +51,12 @@ def main() -> int:
     output_dir = ensure_dir(Path(args.output_dir).expanduser().resolve())
     action_root = ensure_dir(output_dir / "live_actions")
     doctrine = read_doctrine(args.doctrine_doc)
+    literature_context = read_optional_text(args.literature_context_file)
     config = build_config(args, action_root)
     config["experiment"]["codex_scientist_doctrine_doc"] = args.doctrine_doc
     config["experiment"]["codex_scientist_doctrine"] = doctrine[:12000]
+    if literature_context:
+        config["experiment"]["codex_scientist_literature_context"] = literature_context[:12000]
     write_config(output_dir / "config.yaml", config)
     write_json(
         output_dir / "run_spec.json",
@@ -68,7 +72,7 @@ def main() -> int:
         write_initial_actions(action_root, args.num_agents)
     for generation in range(args.generations):
         action_dir = ensure_dir(action_root / f"generation_{generation:02d}")
-        write_generation_prompts(output_dir, action_dir, generation, args.num_agents, doctrine)
+        write_generation_prompts(output_dir, action_dir, generation, args.num_agents, doctrine, literature_context)
         if args.wait_for_actions:
             wait_for_actions(action_dir, generation, args.num_agents, args.action_timeout_seconds, args.poll_seconds)
         missing = missing_actions(action_dir, generation, args.num_agents)
@@ -79,7 +83,7 @@ def main() -> int:
                 + f"\nPrompts are in {output_dir / 'live_prompts' / f'generation_{generation:02d}'}"
             )
         config["experiment"]["codex_scientist_action_overrides_dir"] = str(action_dir)
-        run_generation(output_dir, generation, args.num_agents, config, args.seed, args.parallel_workers)
+        run_generation(output_dir, generation, args.num_agents, config, args.seed, args.parallel_workers, literature_context)
         summary = build_population_summary(output_dir, generation, args.num_agents)
         write_json(output_dir / f"population_summary_generation_{generation:02d}.json", summary)
         write_json(output_dir / "latest_population_summary.json", summary)
@@ -139,6 +143,15 @@ def read_doctrine(path: str) -> str:
     return doctrine_path.read_text(encoding="utf-8") if doctrine_path.exists() else ""
 
 
+def read_optional_text(path: str | None) -> str:
+    if not path:
+        return ""
+    text_path = Path(path).expanduser()
+    if not text_path.is_absolute():
+        text_path = Path.cwd() / text_path
+    return text_path.read_text(encoding="utf-8") if text_path.exists() else ""
+
+
 def write_initial_actions(action_root: Path, num_agents: int) -> None:
     action_dir = ensure_dir(action_root / "generation_00")
     defaults = [
@@ -169,7 +182,14 @@ def write_initial_actions(action_root: Path, num_agents: int) -> None:
         (action_dir / f"agent_{agent_index}_step_1.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def write_generation_prompts(output_dir: Path, action_dir: Path, generation: int, num_agents: int, doctrine: str) -> None:
+def write_generation_prompts(
+    output_dir: Path,
+    action_dir: Path,
+    generation: int,
+    num_agents: int,
+    doctrine: str,
+    literature_context: str = "",
+) -> None:
     prompt_dir = ensure_dir(output_dir / "live_prompts" / f"generation_{generation:02d}")
     previous_summary = output_dir / f"population_summary_generation_{generation - 1:02d}.json"
     visible = previous_summary.read_text(encoding="utf-8") if previous_summary.exists() else "[]"
@@ -205,6 +225,12 @@ Population summary from the previous generation:
 
 ```json
 {visible[:7000]}
+```
+
+Initial multiagent literature context:
+
+```markdown
+{literature_context[:7000] if literature_context else "No initial literature nodes were provided."}
 ```
 
 Autoresearch doctrine:
@@ -265,6 +291,7 @@ def run_generation(
     config: dict[str, Any],
     seed: int,
     parallel_workers: int,
+    literature_context: str = "",
 ) -> None:
     condition_dir = ensure_dir(output_dir / "cultural_evolution")
     with ThreadPoolExecutor(max_workers=max(1, min(num_agents, parallel_workers))) as pool:
@@ -284,7 +311,7 @@ def run_generation(
                 generation + 1,
                 config,
                 seed + generation,
-                generation_context(output_dir, generation),
+                generation_context(output_dir, generation, literature_context),
                 None,
                 previous_action,
             )
@@ -310,11 +337,16 @@ def node_metrics_path(output_dir: Path, agent_index: int, generation: int) -> Pa
     )
 
 
-def generation_context(output_dir: Path, generation: int) -> str | None:
+def generation_context(output_dir: Path, generation: int, literature_context: str = "") -> str | None:
+    prefix = ""
+    if literature_context:
+        prefix = "Initial multiagent literature context:\n\n" + literature_context[:12000] + "\n\n"
     if generation == 0:
-        return None
+        return prefix or None
     summary = output_dir / f"population_summary_generation_{generation - 1:02d}.json"
-    return summary.read_text(encoding="utf-8") if summary.exists() else None
+    if summary.exists():
+        return prefix + "Previous generation population summary:\n\n" + summary.read_text(encoding="utf-8")
+    return prefix or None
 
 
 def read_action(output_dir: Path, agent_index: int, generation: int) -> dict[str, Any]:
