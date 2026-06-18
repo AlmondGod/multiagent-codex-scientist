@@ -66,6 +66,8 @@ In this setting, agents inspect first-step branch summaries and choose whether
 the next node should copy, mutate, recombine, reject, or invent. The
 self-critique condition can only invent or mutate its own branch.
 
+![Live peer-transfer lineage and seed results](docs/figures/live_peer_transfer.svg)
+
 | Condition | Mean Final Score | Mean Improvement | Decision Changed | Cross-Agent Transfer |
 | --- | ---: | ---: | ---: | ---: |
 | self critique | 0.971327 +/- 0.007087 | 0.013115 +/- 0.000647 | 1.000000 +/- 0.000000 | 0.000000 +/- 0.000000 |
@@ -74,6 +76,22 @@ self-critique condition can only invent or mutate its own branch.
 Live peer transfer improved final score by +0.010516 absolute on average, about
 a 1.08% relative gain. Mean improvement increased by +0.009079, about a 69.2%
 relative gain.
+
+## Tree Visualizations
+
+The live peer-transfer tree below shows a complete six-node experiment run. The
+first step creates isolated inventions; the second step copies or mutates after
+agents inspect the population summary.
+
+![Full live peer-transfer tree for seed 7](docs/figures/experiment_live_seed7_tree.svg)
+
+The horizontal end-to-end paper-style tree below shows one of the longest recorded runs:
+`runs/cultural_paper_tree_seed0`, with 45 nodes over 15 generations. Solid
+colored edges are explicit copy, mutation, or recombination transfers; dashed
+gray edges are same-agent parent links. Each node also notes the concrete
+change made in that branch.
+
+![Full end-to-end paper run tree for seed 0](docs/figures/paper_run_tree_seed0.svg)
 
 ## Repository Layout
 

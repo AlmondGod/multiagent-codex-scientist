@@ -1,0 +1,455 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2700" height="820" viewBox="0 0 2700 820" role="img" aria-labelledby="title desc">
+  <title id="title">Annotated horizontal end-to-end paper tree seed 0</title>
+  <desc id="desc">Horizontal 45-node cultural paper tree for seed 0, with each node annotated by the change made.</desc>
+  <defs><marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2,2 L10,6 L2,10 Z" fill="#334155"/></marker><filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.10"/></filter></defs>
+  <style>
+    .bg { fill:#f8fafc; } .panel { fill:#fff; stroke:#d8dee9; stroke-width:1.4; }
+    .title { font:700 28px Inter, ui-sans-serif, system-ui, sans-serif; fill:#0f172a; }
+    .subtitle { font:500 14px Inter, ui-sans-serif, system-ui, sans-serif; fill:#64748b; }
+    .axis { font:700 12px Inter, ui-sans-serif, system-ui, sans-serif; fill:#64748b; }
+    .row { font:700 15px Inter, ui-sans-serif, system-ui, sans-serif; fill:#334155; }
+    .label { font:700 10.5px Inter, ui-sans-serif, system-ui, sans-serif; fill:#0f172a; }
+    .small { font:500 10px Inter, ui-sans-serif, system-ui, sans-serif; fill:#334155; }
+    .tiny { font:500 9.5px Inter, ui-sans-serif, system-ui, sans-serif; fill:#64748b; }
+    .node { stroke-width:1.5; filter:url(#shadow); }
+    .transfer { fill:none; stroke-width:2.0; marker-end:url(#arrow); opacity:0.68; }
+    .parent { fill:none; stroke:#94a3b8; stroke-width:1.2; stroke-dasharray:4 5; marker-end:url(#arrow); opacity:0.50; }
+  </style>
+  <rect class="bg" x="0" y="0" width="2700" height="820"/>
+  <rect class="panel" x="34" y="34" width="2632" height="752" rx="18"/>
+  <text class="title" x="70" y="82">Annotated end-to-end paper run tree</text>
+  <text class="subtitle" x="70" y="110">Horizontal view of runs/cultural_paper_tree_seed0: each node includes the operator, score, and concrete change made.</text>
+  <text class="axis" x="229.0" y="148" text-anchor="middle">g0</text>
+  <text class="axis" x="397.0" y="148" text-anchor="middle">g1</text>
+  <text class="axis" x="565.0" y="148" text-anchor="middle">g2</text>
+  <text class="axis" x="733.0" y="148" text-anchor="middle">g3</text>
+  <text class="axis" x="901.0" y="148" text-anchor="middle">g4</text>
+  <text class="axis" x="1069.0" y="148" text-anchor="middle">g5</text>
+  <text class="axis" x="1237.0" y="148" text-anchor="middle">g6</text>
+  <text class="axis" x="1405.0" y="148" text-anchor="middle">g7</text>
+  <text class="axis" x="1573.0" y="148" text-anchor="middle">g8</text>
+  <text class="axis" x="1741.0" y="148" text-anchor="middle">g9</text>
+  <text class="axis" x="1909.0" y="148" text-anchor="middle">g10</text>
+  <text class="axis" x="2077.0" y="148" text-anchor="middle">g11</text>
+  <text class="axis" x="2245.0" y="148" text-anchor="middle">g12</text>
+  <text class="axis" x="2413.0" y="148" text-anchor="middle">g13</text>
+  <text class="axis" x="2581.0" y="148" text-anchor="middle">g14</text>
+  <text class="row" x="70" y="210" text-anchor="start">Agent 0</text>
+  <line x1="122" y1="283.0" x2="2608" y2="283.0" stroke="#e2e8f0" stroke-width="1"/>
+  <text class="row" x="70" y="410" text-anchor="start">Agent 1</text>
+  <line x1="122" y1="483.0" x2="2608" y2="483.0" stroke="#e2e8f0" stroke-width="1"/>
+  <text class="row" x="70" y="610" text-anchor="start">Agent 2</text>
+  <line x1="122" y1="683.0" x2="2608" y2="683.0" stroke="#e2e8f0" stroke-width="1"/>
+  <g id="edges">
+    <path class="parent" d="M303.0 405.0 C313.0 405.0 313.0 405.0 323.0 405.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M303.0 205.0 C313.0 205.0 313.0 405.0 323.0 405.0"/>
+    <path class="parent" d="M303.0 205.0 C313.0 205.0 313.0 205.0 323.0 205.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M303.0 405.0 C313.0 405.0 313.0 205.0 323.0 205.0"/>
+    <path class="parent" d="M303.0 605.0 C313.0 605.0 313.0 605.0 323.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M303.0 205.0 C313.0 205.0 313.0 605.0 323.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M303.0 405.0 C313.0 405.0 313.0 605.0 323.0 605.0"/>
+    <path class="parent" d="M471.0 405.0 C481.0 405.0 481.0 405.0 491.0 405.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 605.0 C481.0 605.0 481.0 405.0 491.0 405.0"/>
+    <path class="parent" d="M471.0 605.0 C481.0 605.0 481.0 605.0 491.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C481.0 405.0 481.0 605.0 491.0 605.0"/>
+    <path class="parent" d="M471.0 205.0 C481.0 205.0 481.0 205.0 491.0 205.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C481.0 405.0 481.0 205.0 491.0 205.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 605.0 C481.0 605.0 481.0 205.0 491.0 205.0"/>
+    <path class="parent" d="M639.0 605.0 C649.0 605.0 649.0 605.0 659.0 605.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C565.0 405.0 565.0 605.0 659.0 605.0"/>
+    <path class="parent" d="M639.0 205.0 C649.0 205.0 649.0 205.0 659.0 205.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C565.0 405.0 565.0 205.0 659.0 205.0"/>
+    <path class="parent" d="M639.0 405.0 C649.0 405.0 649.0 405.0 659.0 405.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M471.0 405.0 C565.0 405.0 565.0 405.0 659.0 405.0"/>
+    <path class="parent" d="M807.0 605.0 C817.0 605.0 817.0 605.0 827.0 605.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M471.0 405.0 C649.0 405.0 649.0 605.0 827.0 605.0"/>
+    <path class="parent" d="M807.0 405.0 C817.0 405.0 817.0 405.0 827.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C649.0 405.0 649.0 405.0 827.0 405.0"/>
+    <path class="parent" d="M807.0 205.0 C817.0 205.0 817.0 205.0 827.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C649.0 405.0 649.0 205.0 827.0 205.0"/>
+    <path class="parent" d="M975.0 605.0 C985.0 605.0 985.0 605.0 995.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C733.0 405.0 733.0 605.0 995.0 605.0"/>
+    <path class="parent" d="M975.0 405.0 C985.0 405.0 985.0 405.0 995.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C733.0 405.0 733.0 405.0 995.0 405.0"/>
+    <path class="parent" d="M975.0 205.0 C985.0 205.0 985.0 205.0 995.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C733.0 405.0 733.0 205.0 995.0 205.0"/>
+    <path class="parent" d="M1143.0 605.0 C1153.0 605.0 1153.0 605.0 1163.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C817.0 405.0 817.0 605.0 1163.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M975.0 605.0 C1069.0 605.0 1069.0 605.0 1163.0 605.0"/>
+    <path class="parent" d="M1143.0 205.0 C1153.0 205.0 1153.0 205.0 1163.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C817.0 405.0 817.0 205.0 1163.0 205.0"/>
+    <path class="parent" d="M1143.0 405.0 C1153.0 405.0 1153.0 405.0 1163.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C817.0 405.0 817.0 405.0 1163.0 405.0"/>
+    <path class="parent" d="M1311.0 605.0 C1321.0 605.0 1321.0 605.0 1331.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C901.0 405.0 901.0 605.0 1331.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M975.0 605.0 C1153.0 605.0 1153.0 605.0 1331.0 605.0"/>
+    <path class="parent" d="M1311.0 205.0 C1321.0 205.0 1321.0 205.0 1331.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C901.0 405.0 901.0 205.0 1331.0 205.0"/>
+    <path class="parent" d="M1311.0 405.0 C1321.0 405.0 1321.0 405.0 1331.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C901.0 405.0 901.0 405.0 1331.0 405.0"/>
+    <path class="parent" d="M1479.0 605.0 C1489.0 605.0 1489.0 605.0 1499.0 605.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M471.0 405.0 C985.0 405.0 985.0 605.0 1499.0 605.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M975.0 605.0 C1237.0 605.0 1237.0 605.0 1499.0 605.0"/>
+    <path class="parent" d="M1479.0 405.0 C1489.0 405.0 1489.0 405.0 1499.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C985.0 405.0 985.0 405.0 1499.0 405.0"/>
+    <path class="parent" d="M1479.0 205.0 C1489.0 205.0 1489.0 205.0 1499.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C985.0 405.0 985.0 205.0 1499.0 205.0"/>
+    <path class="parent" d="M1647.0 605.0 C1657.0 605.0 1657.0 605.0 1667.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C1069.0 405.0 1069.0 605.0 1667.0 605.0"/>
+    <path class="parent" d="M1647.0 205.0 C1657.0 205.0 1657.0 205.0 1667.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1069.0 405.0 1069.0 205.0 1667.0 205.0"/>
+    <path class="parent" d="M1647.0 405.0 C1657.0 405.0 1657.0 405.0 1667.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1069.0 405.0 1069.0 405.0 1667.0 405.0"/>
+    <path class="parent" d="M1815.0 205.0 C1825.0 205.0 1825.0 205.0 1835.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1153.0 405.0 1153.0 205.0 1835.0 205.0"/>
+    <path class="parent" d="M1815.0 405.0 C1825.0 405.0 1825.0 405.0 1835.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1153.0 405.0 1153.0 405.0 1835.0 405.0"/>
+    <path class="parent" d="M1815.0 605.0 C1825.0 605.0 1825.0 605.0 1835.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C1153.0 405.0 1153.0 605.0 1835.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M1647.0 605.0 C1741.0 605.0 1741.0 605.0 1835.0 605.0"/>
+    <path class="parent" d="M1983.0 605.0 C1993.0 605.0 1993.0 605.0 2003.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C1237.0 405.0 1237.0 605.0 2003.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M1647.0 605.0 C1825.0 605.0 1825.0 605.0 2003.0 605.0"/>
+    <path class="parent" d="M1983.0 205.0 C1993.0 205.0 1993.0 205.0 2003.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1237.0 405.0 1237.0 205.0 2003.0 205.0"/>
+    <path class="parent" d="M1983.0 405.0 C1993.0 405.0 1993.0 405.0 2003.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1237.0 405.0 1237.0 405.0 2003.0 405.0"/>
+    <path class="parent" d="M2151.0 605.0 C2161.0 605.0 2161.0 605.0 2171.0 605.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M471.0 405.0 C1321.0 405.0 1321.0 605.0 2171.0 605.0"/>
+    <path class="transfer" style="stroke:#ef4444" d="M1647.0 605.0 C1909.0 605.0 1909.0 605.0 2171.0 605.0"/>
+    <path class="parent" d="M2151.0 205.0 C2161.0 205.0 2161.0 205.0 2171.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1321.0 405.0 1321.0 205.0 2171.0 205.0"/>
+    <path class="parent" d="M2151.0 405.0 C2161.0 405.0 2161.0 405.0 2171.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1321.0 405.0 1321.0 405.0 2171.0 405.0"/>
+    <path class="parent" d="M2319.0 605.0 C2329.0 605.0 2329.0 605.0 2339.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C1405.0 405.0 1405.0 605.0 2339.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M1647.0 605.0 C1993.0 605.0 1993.0 605.0 2339.0 605.0"/>
+    <path class="parent" d="M2319.0 405.0 C2329.0 405.0 2329.0 405.0 2339.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1405.0 405.0 1405.0 405.0 2339.0 405.0"/>
+    <path class="parent" d="M2319.0 205.0 C2329.0 205.0 2329.0 205.0 2339.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1405.0 405.0 1405.0 205.0 2339.0 205.0"/>
+    <path class="parent" d="M2487.0 405.0 C2497.0 405.0 2497.0 405.0 2507.0 405.0"/>
+    <path class="transfer" style="stroke:#3b82f6" d="M471.0 405.0 C1489.0 405.0 1489.0 405.0 2507.0 405.0"/>
+    <path class="parent" d="M2487.0 205.0 C2497.0 205.0 2497.0 205.0 2507.0 205.0"/>
+    <path class="transfer" style="stroke:#22a06b" d="M471.0 405.0 C1489.0 405.0 1489.0 205.0 2507.0 205.0"/>
+    <path class="parent" d="M2487.0 605.0 C2497.0 605.0 2497.0 605.0 2507.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M471.0 405.0 C1489.0 405.0 1489.0 605.0 2507.0 605.0"/>
+    <path class="transfer" style="stroke:#f97316" d="M1647.0 605.0 C2077.0 605.0 2077.0 605.0 2507.0 605.0"/>
+  </g>
+  <g id="nodes">
+    <rect class="node" x="155" y="346.0" width="148" height="118" rx="10" style="fill:#f8fafc;stroke:#64748b;stroke-width:1.5"/>
+    <text class="label" x="229.0" y="370" text-anchor="middle">n1 invent</text>
+    <text class="tiny" x="229.0" y="387" text-anchor="middle">score 0.9788</text>
+    <text class="small" x="229.0" y="406" text-anchor="middle">Smooth-L1 dynamics</text>
+    <text class="small" x="229.0" y="422" text-anchor="middle">pixels</text>
+    <text class="tiny" x="229.0" y="439" text-anchor="middle">pix=6, prior=1.5</text>
+    <text class="tiny" x="229.0" y="455" text-anchor="middle">patch: smooth l1 dynamics pix</text>
+    <rect class="node" x="155" y="146.0" width="148" height="118" rx="10" style="fill:#f8fafc;stroke:#64748b;stroke-width:1.5"/>
+    <text class="label" x="229.0" y="170" text-anchor="middle">n1 invent</text>
+    <text class="tiny" x="229.0" y="187" text-anchor="middle">score 0.9576</text>
+    <text class="small" x="229.0" y="206" text-anchor="middle">env-action supervision</text>
+    <text class="tiny" x="229.0" y="225" text-anchor="middle">act=0.35, env=1</text>
+    <text class="tiny" x="229.0" y="241" text-anchor="middle">patch: action grad dynamics</text>
+    <rect class="node" x="155" y="546.0" width="148" height="118" rx="10" style="fill:#f8fafc;stroke:#64748b;stroke-width:1.5"/>
+    <text class="label" x="229.0" y="570" text-anchor="middle">n1 invent</text>
+    <text class="tiny" x="229.0" y="587" text-anchor="middle">score 0.9213</text>
+    <text class="small" x="229.0" y="606" text-anchor="middle">early dynamics</text>
+    <text class="small" x="229.0" y="622" text-anchor="middle">curriculum</text>
+    <text class="tiny" x="229.0" y="639" text-anchor="middle">chg=2, depth=2</text>
+    <text class="tiny" x="229.0" y="655" text-anchor="middle">patch: dynamics first schedul</text>
+    <rect class="node" x="323" y="346.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#eab308;stroke-width:3.0"/>
+    <text class="label" x="397.0" y="370" text-anchor="middle">n2 recombine</text>
+    <text class="tiny" x="397.0" y="387" text-anchor="middle">score 0.9824</text>
+    <text class="small" x="397.0" y="406" text-anchor="middle">imagination</text>
+    <text class="small" x="397.0" y="422" text-anchor="middle">action-cycle</text>
+    <text class="tiny" x="397.0" y="439" text-anchor="middle">src: two branches; act=0.2, pi</text>
+    <text class="tiny" x="397.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="323" y="146.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="397.0" y="170" text-anchor="middle">n2 recombine</text>
+    <text class="tiny" x="397.0" y="187" text-anchor="middle">score 0.9791</text>
+    <text class="small" x="397.0" y="206" text-anchor="middle">latent displacement</text>
+    <text class="small" x="397.0" y="222" text-anchor="middle">teacher</text>
+    <text class="tiny" x="397.0" y="239" text-anchor="middle">src: two branches; act=0.2, pi</text>
+    <text class="tiny" x="397.0" y="255" text-anchor="middle">patch: smooth l1 dynamics pix</text>
+    <rect class="node" x="323" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="397.0" y="570" text-anchor="middle">n2 recombine</text>
+    <text class="tiny" x="397.0" y="587" text-anchor="middle">score 0.9765</text>
+    <text class="small" x="397.0" y="606" text-anchor="middle">wrong-action contrast</text>
+    <text class="tiny" x="397.0" y="625" text-anchor="middle">src: two branches; pix=4, chg=</text>
+    <text class="tiny" x="397.0" y="641" text-anchor="middle">patch: smooth l1 dynamics pix</text>
+    <rect class="node" x="491" y="346.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="565.0" y="370" text-anchor="middle">n3 recombine</text>
+    <text class="tiny" x="565.0" y="387" text-anchor="middle">score 0.9737</text>
+    <text class="small" x="565.0" y="406" text-anchor="middle">action-cycle +</text>
+    <text class="small" x="565.0" y="422" text-anchor="middle">bijection</text>
+    <text class="tiny" x="565.0" y="439" text-anchor="middle">src: two branches; act=0.2, pi</text>
+    <text class="tiny" x="565.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="491" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="565.0" y="570" text-anchor="middle">n3 recombine</text>
+    <text class="tiny" x="565.0" y="587" text-anchor="middle">score 0.9662</text>
+    <text class="small" x="565.0" y="606" text-anchor="middle">imagined-effect</text>
+    <text class="small" x="565.0" y="622" text-anchor="middle">contrast</text>
+    <text class="tiny" x="565.0" y="639" text-anchor="middle">src: two branches; act=0.2, pi</text>
+    <text class="tiny" x="565.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="491" y="146.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="565.0" y="170" text-anchor="middle">n3 recombine</text>
+    <text class="tiny" x="565.0" y="187" text-anchor="middle">score 0.9594</text>
+    <text class="small" x="565.0" y="206" text-anchor="middle">counterfactual action</text>
+    <text class="small" x="565.0" y="222" text-anchor="middle">cycle</text>
+    <text class="tiny" x="565.0" y="239" text-anchor="middle">src: two branches; act=0.2, pi</text>
+    <text class="tiny" x="565.0" y="255" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="659" y="546.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="733.0" y="570" text-anchor="middle">n4 copy</text>
+    <text class="tiny" x="733.0" y="587" text-anchor="middle">score 0.9798</text>
+    <text class="small" x="733.0" y="606" text-anchor="middle">recover action-cycle</text>
+    <text class="tiny" x="733.0" y="625" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="733.0" y="641" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="659" y="146.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="733.0" y="170" text-anchor="middle">n4 mutate</text>
+    <text class="tiny" x="733.0" y="187" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="733.0" y="206" text-anchor="middle">recover action-cycle</text>
+    <text class="tiny" x="733.0" y="225" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="733.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="659" y="346.0" width="148" height="118" rx="10" style="fill:#fef2f2;stroke:#ef4444;stroke-width:1.5"/>
+    <text class="label" x="733.0" y="370" text-anchor="middle">n4 reject</text>
+    <text class="tiny" x="733.0" y="387" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="733.0" y="406" text-anchor="middle">recover minimal</text>
+    <text class="small" x="733.0" y="422" text-anchor="middle">action-cycle</text>
+    <text class="tiny" x="733.0" y="439" text-anchor="middle">src: prior; act=0.2, pix=6, pr</text>
+    <text class="tiny" x="733.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="827" y="546.0" width="148" height="118" rx="10" style="fill:#fef2f2;stroke:#ef4444;stroke-width:1.5"/>
+    <text class="label" x="901.0" y="570" text-anchor="middle">n5 reject</text>
+    <text class="tiny" x="901.0" y="587" text-anchor="middle">score 0.9820</text>
+    <text class="small" x="901.0" y="606" text-anchor="middle">full-budget action</text>
+    <text class="small" x="901.0" y="622" text-anchor="middle">supervision</text>
+    <text class="tiny" x="901.0" y="639" text-anchor="middle">src: global best; act=0.7, pix</text>
+    <text class="tiny" x="901.0" y="655" text-anchor="middle">patch: full budget action sup</text>
+    <rect class="node" x="827" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="901.0" y="370" text-anchor="middle">n5 mutate</text>
+    <text class="tiny" x="901.0" y="387" text-anchor="middle">score 0.9798</text>
+    <text class="small" x="901.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="901.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="901.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="901.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="827" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="901.0" y="170" text-anchor="middle">n5 copy</text>
+    <text class="tiny" x="901.0" y="187" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="901.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="901.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="901.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="995" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="1069.0" y="570" text-anchor="middle">n6 recombine</text>
+    <text class="tiny" x="1069.0" y="587" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="1069.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="1069.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="1069.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="1069.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="995" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1069.0" y="370" text-anchor="middle">n6 mutate</text>
+    <text class="tiny" x="1069.0" y="387" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="1069.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1069.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1069.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1069.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="995" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1069.0" y="170" text-anchor="middle">n6 copy</text>
+    <text class="tiny" x="1069.0" y="187" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="1069.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1069.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1069.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1163" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="1237.0" y="570" text-anchor="middle">n7 recombine</text>
+    <text class="tiny" x="1237.0" y="587" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="1237.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="1237.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="1237.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="1237.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1163" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1237.0" y="170" text-anchor="middle">n7 copy</text>
+    <text class="tiny" x="1237.0" y="187" text-anchor="middle">score 0.9794</text>
+    <text class="small" x="1237.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1237.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1237.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1163" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1237.0" y="370" text-anchor="middle">n7 mutate</text>
+    <text class="tiny" x="1237.0" y="387" text-anchor="middle">score 0.9793</text>
+    <text class="small" x="1237.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1237.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1237.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1237.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1331" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="1405.0" y="570" text-anchor="middle">n8 recombine</text>
+    <text class="tiny" x="1405.0" y="587" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="1405.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="1405.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="1405.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="1405.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1331" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1405.0" y="170" text-anchor="middle">n8 copy</text>
+    <text class="tiny" x="1405.0" y="187" text-anchor="middle">score 0.9794</text>
+    <text class="small" x="1405.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1405.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1405.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1331" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1405.0" y="370" text-anchor="middle">n8 mutate</text>
+    <text class="tiny" x="1405.0" y="387" text-anchor="middle">score 0.9792</text>
+    <text class="small" x="1405.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1405.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1405.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1405.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1499" y="546.0" width="148" height="118" rx="10" style="fill:#fef2f2;stroke:#ef4444;stroke-width:1.5"/>
+    <text class="label" x="1573.0" y="570" text-anchor="middle">n9 reject</text>
+    <text class="tiny" x="1573.0" y="587" text-anchor="middle">score 0.9820</text>
+    <text class="small" x="1573.0" y="606" text-anchor="middle">full-budget action</text>
+    <text class="small" x="1573.0" y="622" text-anchor="middle">supervision</text>
+    <text class="tiny" x="1573.0" y="639" text-anchor="middle">src: global best; act=0.7, pix</text>
+    <text class="tiny" x="1573.0" y="655" text-anchor="middle">patch: full budget action sup</text>
+    <rect class="node" x="1499" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1573.0" y="370" text-anchor="middle">n9 mutate</text>
+    <text class="tiny" x="1573.0" y="387" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="1573.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1573.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1573.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1573.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1499" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1573.0" y="170" text-anchor="middle">n9 copy</text>
+    <text class="tiny" x="1573.0" y="187" text-anchor="middle">score 0.9792</text>
+    <text class="small" x="1573.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1573.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1573.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1667" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="1741.0" y="570" text-anchor="middle">n10 recombine</text>
+    <text class="tiny" x="1741.0" y="587" text-anchor="middle">score 0.9801</text>
+    <text class="small" x="1741.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="1741.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="1741.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="1741.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1667" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1741.0" y="170" text-anchor="middle">n10 copy</text>
+    <text class="tiny" x="1741.0" y="187" text-anchor="middle">score 0.9790</text>
+    <text class="small" x="1741.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1741.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1741.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1667" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1741.0" y="370" text-anchor="middle">n10 mutate</text>
+    <text class="tiny" x="1741.0" y="387" text-anchor="middle">score 0.9789</text>
+    <text class="small" x="1741.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1741.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1741.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1741.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1835" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="1909.0" y="170" text-anchor="middle">n11 copy</text>
+    <text class="tiny" x="1909.0" y="187" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="1909.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="1909.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="1909.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1835" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="1909.0" y="370" text-anchor="middle">n11 mutate</text>
+    <text class="tiny" x="1909.0" y="387" text-anchor="middle">score 0.9795</text>
+    <text class="small" x="1909.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="1909.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="1909.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="1909.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="1835" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="1909.0" y="570" text-anchor="middle">n11 recombine</text>
+    <text class="tiny" x="1909.0" y="587" text-anchor="middle">score 0.9792</text>
+    <text class="small" x="1909.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="1909.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="1909.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="1909.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2003" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="2077.0" y="570" text-anchor="middle">n12 recombine</text>
+    <text class="tiny" x="2077.0" y="587" text-anchor="middle">score 0.9800</text>
+    <text class="small" x="2077.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="2077.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="2077.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="2077.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2003" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="2077.0" y="170" text-anchor="middle">n12 copy</text>
+    <text class="tiny" x="2077.0" y="187" text-anchor="middle">score 0.9789</text>
+    <text class="small" x="2077.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="2077.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="2077.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2003" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="2077.0" y="370" text-anchor="middle">n12 mutate</text>
+    <text class="tiny" x="2077.0" y="387" text-anchor="middle">score 0.9788</text>
+    <text class="small" x="2077.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="2077.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="2077.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="2077.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2171" y="546.0" width="148" height="118" rx="10" style="fill:#fef2f2;stroke:#ef4444;stroke-width:1.5"/>
+    <text class="label" x="2245.0" y="570" text-anchor="middle">n13 reject</text>
+    <text class="tiny" x="2245.0" y="587" text-anchor="middle">score 0.9820</text>
+    <text class="small" x="2245.0" y="606" text-anchor="middle">full-budget action</text>
+    <text class="small" x="2245.0" y="622" text-anchor="middle">supervision</text>
+    <text class="tiny" x="2245.0" y="639" text-anchor="middle">src: global best; act=0.7, pix</text>
+    <text class="tiny" x="2245.0" y="655" text-anchor="middle">patch: full budget action sup</text>
+    <rect class="node" x="2171" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="2245.0" y="170" text-anchor="middle">n13 copy</text>
+    <text class="tiny" x="2245.0" y="187" text-anchor="middle">score 0.9798</text>
+    <text class="small" x="2245.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="2245.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="2245.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2171" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="2245.0" y="370" text-anchor="middle">n13 mutate</text>
+    <text class="tiny" x="2245.0" y="387" text-anchor="middle">score 0.9796</text>
+    <text class="small" x="2245.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="2245.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="2245.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="2245.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2339" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="2413.0" y="570" text-anchor="middle">n14 recombine</text>
+    <text class="tiny" x="2413.0" y="587" text-anchor="middle">score 0.9800</text>
+    <text class="small" x="2413.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="2413.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="2413.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="2413.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2339" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="2413.0" y="370" text-anchor="middle">n14 mutate</text>
+    <text class="tiny" x="2413.0" y="387" text-anchor="middle">score 0.9791</text>
+    <text class="small" x="2413.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="2413.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="2413.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="2413.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2339" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="2413.0" y="170" text-anchor="middle">n14 copy</text>
+    <text class="tiny" x="2413.0" y="187" text-anchor="middle">score 0.9790</text>
+    <text class="small" x="2413.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="2413.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="2413.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2507" y="346.0" width="148" height="118" rx="10" style="fill:#eff6ff;stroke:#3b82f6;stroke-width:1.5"/>
+    <text class="label" x="2581.0" y="370" text-anchor="middle">n15 mutate</text>
+    <text class="tiny" x="2581.0" y="387" text-anchor="middle">score 0.9797</text>
+    <text class="small" x="2581.0" y="406" text-anchor="middle">retune global-best</text>
+    <text class="small" x="2581.0" y="422" text-anchor="middle">weights</text>
+    <text class="tiny" x="2581.0" y="439" text-anchor="middle">src: global best; act=0.2, pix</text>
+    <text class="tiny" x="2581.0" y="455" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2507" y="146.0" width="148" height="118" rx="10" style="fill:#ecfdf5;stroke:#22a06b;stroke-width:1.5"/>
+    <text class="label" x="2581.0" y="170" text-anchor="middle">n15 copy</text>
+    <text class="tiny" x="2581.0" y="187" text-anchor="middle">score 0.9793</text>
+    <text class="small" x="2581.0" y="206" text-anchor="middle">copy g1 agent_1 best</text>
+    <text class="tiny" x="2581.0" y="225" text-anchor="middle">src: g1 best; act=0.2, pix=6, </text>
+    <text class="tiny" x="2581.0" y="241" text-anchor="middle">patch: baseline no patch</text>
+    <rect class="node" x="2507" y="546.0" width="148" height="118" rx="10" style="fill:#fff7ed;stroke:#f97316;stroke-width:1.5"/>
+    <text class="label" x="2581.0" y="570" text-anchor="middle">n15 recombine</text>
+    <text class="tiny" x="2581.0" y="587" text-anchor="middle">score 0.9788</text>
+    <text class="small" x="2581.0" y="606" text-anchor="middle">best + action</text>
+    <text class="small" x="2581.0" y="622" text-anchor="middle">grounding</text>
+    <text class="tiny" x="2581.0" y="639" text-anchor="middle">src: two branches; act=0.25, p</text>
+    <text class="tiny" x="2581.0" y="655" text-anchor="middle">patch: baseline no patch</text>
+  </g>
+  <rect x="70" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#64748b;stroke-width:2.2"/>
+  <text class="tiny" x="98" y="749">invent</text>
+  <rect x="215" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#22a06b;stroke-width:2.2"/>
+  <text class="tiny" x="243" y="749">copy</text>
+  <rect x="360" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#3b82f6;stroke-width:2.2"/>
+  <text class="tiny" x="388" y="749">mutate</text>
+  <rect x="505" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#f97316;stroke-width:2.2"/>
+  <text class="tiny" x="533" y="749">recombine</text>
+  <rect x="650" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#ef4444;stroke-width:2.2"/>
+  <text class="tiny" x="678" y="749">reject</text>
+  <rect x="795" y="735" width="18" height="18" rx="4" style="fill:#fff;stroke:#eab308;stroke-width:2.2"/>
+  <text class="tiny" x="823" y="749">best</text>
+  <text class="tiny" x="70" y="785">Dashed gray edges connect same-agent parents; colored edges show explicit cultural source transfer.</text>
+  <text class="tiny" x="560" y="785">Best node: cultural_evolution_agent_1_node_2 with score 0.982424.</text>
+</svg>

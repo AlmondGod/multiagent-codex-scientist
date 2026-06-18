@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Live peer transfer experiment</title>
+  <desc id="desc">A two-panel figure. The left panel shows the live peer transfer lineage pattern: agent 1's Smooth L1 dynamics branch is copied by agents 0 and 2 while agent 1 mutates its own branch. The right panel shows final scores across seeds 6 through 10 for self critique and peer transfer.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <style>
+    .page { fill: #f8fafc; }
+    .panel { fill: #ffffff; stroke: #d8dee9; stroke-width: 1.4; rx: 18; }
+    .title { font: 700 25px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+    .subtitle { font: 500 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #64748b; }
+    .label { font: 700 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0f172a; }
+    .small { font: 500 12px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
+    .tiny { font: 500 11px Inter, ui-sans-serif, system-ui, sans-serif; fill: #64748b; }
+    .node { stroke-width: 1.6; rx: 12; filter: url(#shadow); }
+    .agent0 { fill: #eff6ff; stroke: #3b82f6; }
+    .agent1 { fill: #ecfdf5; stroke: #22a06b; }
+    .agent2 { fill: #fff7ed; stroke: #f97316; }
+    .weak { fill: #fff1f2; stroke: #e11d48; }
+    .arrow { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+    .copy { stroke: #22a06b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    .mutate { stroke: #3b82f6; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+    .abandon { stroke: #94a3b8; stroke-width: 1.8; stroke-dasharray: 5 5; fill: none; marker-end: url(#arrow); }
+    .axis { stroke: #334155; stroke-width: 1.4; }
+    .grid { stroke: #e2e8f0; stroke-width: 1; }
+    .self-line { stroke: #94a3b8; stroke-width: 3; fill: none; }
+    .peer-line { stroke: #22a06b; stroke-width: 3; fill: none; }
+    .self-dot { fill: #94a3b8; stroke: #ffffff; stroke-width: 2; }
+    .peer-dot { fill: #22a06b; stroke: #ffffff; stroke-width: 2; }
+    .legend { font: 600 13px Inter, ui-sans-serif, system-ui, sans-serif; fill: #334155; }
+  </style>
+
+  <rect class="page" x="0" y="0" width="1200" height="620"/>
+
+  <rect class="panel" x="36" y="36" width="542" height="548"/>
+  <text class="title" x="64" y="80">Live peer-transfer lineage</text>
+  <text class="subtitle" x="64" y="106">Across seeds, the strongest first branch is selected and transmitted.</text>
+
+  <text class="small" x="86" y="145">Step 1: isolated inventions</text>
+  <text class="small" x="352" y="145">Step 2: peer-selected actions</text>
+
+  <rect class="node agent0" x="72" y="170" width="178" height="74"/>
+  <text class="label" x="161" y="196" text-anchor="middle">agent 0</text>
+  <text class="small" x="161" y="216" text-anchor="middle">action_grad</text>
+  <text class="tiny" x="161" y="234" text-anchor="middle">weaker branch</text>
+
+  <rect class="node agent1" x="72" y="278" width="178" height="82"/>
+  <text class="label" x="161" y="304" text-anchor="middle">agent 1</text>
+  <text class="small" x="161" y="324" text-anchor="middle">smooth_l1_dynamics</text>
+  <text class="tiny" x="161" y="342" text-anchor="middle">population leader</text>
+
+  <rect class="node weak" x="72" y="402" width="178" height="74"/>
+  <text class="label" x="161" y="428" text-anchor="middle">agent 2</text>
+  <text class="small" x="161" y="448" text-anchor="middle">fast schedule</text>
+  <text class="tiny" x="161" y="466" text-anchor="middle">usually abandoned</text>
+
+  <rect class="node agent1" x="342" y="170" width="178" height="74"/>
+  <text class="label" x="431" y="196" text-anchor="middle">agent 0</text>
+  <text class="small" x="431" y="216" text-anchor="middle">copies agent 1</text>
+  <text class="tiny" x="431" y="234" text-anchor="middle">smooth_l1_dynamics</text>
+
+  <rect class="node agent1" x="342" y="278" width="178" height="82"/>
+  <text class="label" x="431" y="304" text-anchor="middle">agent 1</text>
+  <text class="small" x="431" y="324" text-anchor="middle">mutates own leader</text>
+  <text class="tiny" x="431" y="342" text-anchor="middle">weight adjustment</text>
+
+  <rect class="node agent1" x="342" y="402" width="178" height="74"/>
+  <text class="label" x="431" y="428" text-anchor="middle">agent 2</text>
+  <text class="small" x="431" y="448" text-anchor="middle">copies agent 1</text>
+  <text class="tiny" x="431" y="466" text-anchor="middle">smooth_l1_dynamics</text>
+
+  <path class="copy" d="M250 319 C294 236 306 207 342 207"/>
+  <text class="tiny" x="302" y="230" text-anchor="middle">copy</text>
+  <path class="mutate" d="M250 319 C286 319 306 319 342 319"/>
+  <text class="tiny" x="298" y="309" text-anchor="middle">mutate</text>
+  <path class="copy" d="M250 319 C294 394 306 439 342 439"/>
+  <text class="tiny" x="302" y="416" text-anchor="middle">copy</text>
+  <path class="abandon" d="M250 439 C286 455 306 455 342 439"/>
+
+  <text class="small" x="296" y="516" text-anchor="middle">Observed operator rates over 5 live seeds:</text>
+  <text class="tiny" x="296" y="538" text-anchor="middle">copy 0.667, mutate 0.267, recombine 0.067, cross-agent transfer 0.733</text>
+
+  <rect class="panel" x="622" y="36" width="542" height="548"/>
+  <text class="title" x="650" y="80">Final score by seed</text>
+  <text class="subtitle" x="650" y="106">Peer transfer is consistently above the matched self condition.</text>
+
+  <g transform="translate(705,145)">
+    <line class="grid" x1="0" y1="330" x2="395" y2="330"/>
+    <line class="grid" x1="0" y1="274" x2="395" y2="274"/>
+    <line class="grid" x1="0" y1="218" x2="395" y2="218"/>
+    <line class="grid" x1="0" y1="162" x2="395" y2="162"/>
+    <line class="grid" x1="0" y1="106" x2="395" y2="106"/>
+    <line class="grid" x1="0" y1="50" x2="395" y2="50"/>
+
+    <line class="axis" x1="0" y1="330" x2="395" y2="330"/>
+    <line class="axis" x1="0" y1="50" x2="0" y2="330"/>
+
+    <text class="tiny" x="-12" y="334" text-anchor="end">0.958</text>
+    <text class="tiny" x="-12" y="278" text-anchor="end">0.963</text>
+    <text class="tiny" x="-12" y="222" text-anchor="end">0.968</text>
+    <text class="tiny" x="-12" y="166" text-anchor="end">0.973</text>
+    <text class="tiny" x="-12" y="110" text-anchor="end">0.978</text>
+    <text class="tiny" x="-12" y="54" text-anchor="end">0.983</text>
+    <text class="tiny" x="-56" y="190" transform="rotate(-90 -56 190)" text-anchor="middle">final score</text>
+
+    <path class="self-line" d="M35 205.4 L116.25 310.1 L197.5 130.3 L278.75 126.3 L360 131.8"/>
+    <path class="peer-line" d="M35 63.3 L116.25 79.8 L197.5 54.7 L278.75 52.6 L360 64.5"/>
+
+    <circle class="self-dot" cx="35" cy="205.4" r="6"/>
+    <circle class="self-dot" cx="116.25" cy="310.1" r="6"/>
+    <circle class="self-dot" cx="197.5" cy="130.3" r="6"/>
+    <circle class="self-dot" cx="278.75" cy="126.3" r="6"/>
+    <circle class="self-dot" cx="360" cy="131.8" r="6"/>
+
+    <circle class="peer-dot" cx="35" cy="63.3" r="6"/>
+    <circle class="peer-dot" cx="116.25" cy="79.8" r="6"/>
+    <circle class="peer-dot" cx="197.5" cy="54.7" r="6"/>
+    <circle class="peer-dot" cx="278.75" cy="52.6" r="6"/>
+    <circle class="peer-dot" cx="360" cy="64.5" r="6"/>
+
+    <text class="tiny" x="35" y="356" text-anchor="middle">6</text>
+    <text class="tiny" x="116.25" y="356" text-anchor="middle">7</text>
+    <text class="tiny" x="197.5" y="356" text-anchor="middle">8</text>
+    <text class="tiny" x="278.75" y="356" text-anchor="middle">9</text>
+    <text class="tiny" x="360" y="356" text-anchor="middle">10</text>
+    <text class="tiny" x="197.5" y="382" text-anchor="middle">seed</text>
+
+    <circle class="self-dot" cx="54" cy="18" r="6"/>
+    <text class="legend" x="68" y="23">self critique</text>
+    <circle class="peer-dot" cx="184" cy="18" r="6"/>
+    <text class="legend" x="198" y="23">peer transfer</text>
+  </g>
+
+  <text class="tiny" x="650" y="548">Mean final score: self 0.971327, peer 0.981843.</text>
+  <text class="tiny" x="650" y="568">The live peer condition copies or mutates the observed population leader after step 1.</text>
+</svg>

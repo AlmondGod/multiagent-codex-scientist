@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">Live peer transfer seed 7 full tree</title>
+  <desc id="desc">Six-node live peer transfer tree for seed 7. Agent 1's Smooth L1 branch is copied by agents 0 and 2 and mutated by agent 1.</desc>
+  <defs><marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M2,2 L10,6 L2,10 Z" fill="#334155"/></marker><filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10"/></filter></defs>
+  <style>
+    .bg { fill:#f8fafc; } .panel { fill:#fff; stroke:#d8dee9; stroke-width:1.4; }
+    .title { font:700 28px Inter, ui-sans-serif, system-ui, sans-serif; fill:#0f172a; }
+    .subtitle { font:500 14px Inter, ui-sans-serif, system-ui, sans-serif; fill:#64748b; }
+    .axis { font:700 14px Inter, ui-sans-serif, system-ui, sans-serif; fill:#475569; }
+    .label { font:700 15px Inter, ui-sans-serif, system-ui, sans-serif; fill:#0f172a; }
+    .small { font:500 13px Inter, ui-sans-serif, system-ui, sans-serif; fill:#475569; }
+    .tiny { font:500 12px Inter, ui-sans-serif, system-ui, sans-serif; fill:#64748b; }
+    .node { stroke-width:1.8; filter:url(#shadow); }
+    .edge { fill:none; stroke-width:3; marker-end:url(#arrow); }
+    .parent { fill:none; stroke:#94a3b8; stroke-width:1.8; stroke-dasharray:5 5; marker-end:url(#arrow); }
+  </style>
+  <rect class="bg" x="0" y="0" width="1120" height="620"/>
+  <rect class="panel" x="36" y="36" width="1048" height="548" rx="18"/>
+  <text class="title" x="70" y="82">Live peer-transfer experiment: full seed-7 tree</text>
+  <text class="subtitle" x="70" y="110">Step 1 branches run in isolation. Step 2 actions are chosen after inspecting the population summary.</text>
+  <text class="axis" x="265.0" y="136" text-anchor="middle">Step 1: inventions</text>
+  <text class="axis" x="845.0" y="136" text-anchor="middle">Step 2: transferred actions</text>
+
+  <path class="parent" d="M380 186.0 C480 186.0 640 186.0 730 186.0"/>
+  <path class="edge" style="stroke:#22a06b" d="M380 336.0 C470 336.0 630 186.0 730 186.0"/>
+  <path class="parent" d="M380 336.0 C480 336.0 640 336.0 730 336.0"/>
+  <path class="edge" style="stroke:#3b82f6" d="M380 336.0 C470 336.0 630 336.0 730 336.0"/>
+  <path class="parent" d="M380 486.0 C480 486.0 640 486.0 730 486.0"/>
+  <path class="edge" style="stroke:#22a06b" d="M380 336.0 C470 336.0 630 486.0 730 486.0"/>
+  <rect class="node" x="150" y="145" width="230" height="82" rx="12" style="fill:#f8fafc;stroke:#64748b"/>
+  <text class="label" x="265.0" y="169" text-anchor="middle">agent_0 node 1: invent</text>
+  <text class="small" x="265.0" y="191" text-anchor="middle">action_grad</text>
+  <text class="tiny" x="265.0" y="211" text-anchor="middle">score 0.957682 </text>
+  <rect class="node" x="730" y="145" width="230" height="82" rx="12" style="fill:#ecfdf5;stroke:#22a06b"/>
+  <text class="label" x="845.0" y="169" text-anchor="middle">agent_0 node 2: copy</text>
+  <text class="small" x="845.0" y="191" text-anchor="middle">smooth_l1</text>
+  <text class="tiny" x="845.0" y="211" text-anchor="middle">score 0.980475 delta +0.022793</text>
+  <rect class="node" x="150" y="295" width="230" height="82" rx="12" style="fill:#f8fafc;stroke:#64748b"/>
+  <text class="label" x="265.0" y="319" text-anchor="middle">agent_1 node 1: invent</text>
+  <text class="small" x="265.0" y="341" text-anchor="middle">smooth_l1</text>
+  <text class="tiny" x="265.0" y="361" text-anchor="middle">score 0.979632 </text>
+  <rect class="node" x="730" y="295" width="230" height="82" rx="12" style="fill:#eff6ff;stroke:#3b82f6"/>
+  <text class="label" x="845.0" y="319" text-anchor="middle">agent_1 node 2: mutate</text>
+  <text class="small" x="845.0" y="341" text-anchor="middle">smooth_l1</text>
+  <text class="tiny" x="845.0" y="361" text-anchor="middle">score 0.980523 delta +0.000891</text>
+  <rect class="node" x="150" y="445" width="230" height="82" rx="12" style="fill:#f8fafc;stroke:#64748b"/>
+  <text class="label" x="265.0" y="469" text-anchor="middle">agent_2 node 1: invent</text>
+  <text class="small" x="265.0" y="491" text-anchor="middle">dynamics_first</text>
+  <text class="tiny" x="265.0" y="511" text-anchor="middle">score 0.920532 </text>
+  <rect class="node" x="730" y="445" width="230" height="82" rx="12" style="fill:#ecfdf5;stroke:#22a06b"/>
+  <text class="label" x="845.0" y="469" text-anchor="middle">agent_2 node 2: copy</text>
+  <text class="small" x="845.0" y="491" text-anchor="middle">smooth_l1</text>
+  <text class="tiny" x="845.0" y="511" text-anchor="middle">score 0.980023 delta +0.059491</text>
+  <text class="tiny" x="70" y="548">Solid colored edges are explicit source transfers. Dashed gray edges are same-agent parent links.</text>
+  <text class="tiny" x="70" y="568">In this run, agents 0 and 2 copy agent 1's Smooth-L1 branch; agent 1 mutates its own leader.</text>
+</svg>

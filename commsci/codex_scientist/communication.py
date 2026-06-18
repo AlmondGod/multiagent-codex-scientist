@@ -165,18 +165,25 @@ def build_visible_context(
     condition: str,
     config: dict[str, Any] | None = None,
 ) -> str:
+    # Self-critique is the isolation baseline: no population information leaks in.
     if condition == "self_critique":
         return "Self critique: critic sees only its own branch summary."
+
+    # Peer conditions expose a compact scoreboard of first-step branch outcomes.
     population_enabled = (config or {}).get("experiment", {}).get("codex_scientist_population_context", True)
     population_text = ""
     if population_enabled:
         population_text = "Population step-1 scoreboard:\n" + json.dumps(
             build_population_summary(summaries), indent=2, sort_keys=True
         )[:3500] + "\n\n"
+
+    # The peer critic also sees its own branch, enabling comparison against the target.
     if critic_id in summaries:
         return population_text + "Peer critique: critic also knows its own first branch outcome:\n" + json.dumps(
             summaries[critic_id], indent=2, sort_keys=True
         )[:2500]
+
+    # Fallback keeps the peer condition valid even if a critic branch is missing.
     return population_text + "Peer critique: no extra critic context was available."
 
 

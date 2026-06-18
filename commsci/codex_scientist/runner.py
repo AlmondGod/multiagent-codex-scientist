@@ -66,6 +66,7 @@ def run_codex_scientist_branch_expansion(
         action=action,
         critique_context=critique_context,
         memory=memory,
+        ideation_prompt=config["experiment"].get("codex_scientist_ideation_prompt"),
     )
     write_text(node_root / "worker_task.md", prompt)
     write_text(node_root / "memory.md", "\n".join(memory) + ("\n" if memory else ""))

@@ -23,7 +23,7 @@ experiment:
 compute:
   num_agents: 3
 model:
-  mock_model: true
+  mock_model: false
   seed: 0
 base_system:
   write_full_paper: true
@@ -45,3 +45,4 @@ codex_scientistv2:
   ablation_time_budget_seconds: 60
   ablation_timeout_seconds: 240
   ablation_parallel_workers: 1
+  codex_task_dry_run: false

@@ -21,6 +21,7 @@ def write_domain_paper_from_run(run_dir: Path, output_path: Path | None = None) 
     action = read_json(best_node / "action.json")
     metrics = read_json(best_node / "metrics.json")
     patch = read_json(best_node / "patch_result.json")
+    ablation_report = read_ablation_report(run_dir)
     generations = sorted({int(row["generation"]) for row in rows})
     best_by_generation = [
         max([row for row in rows if int(row["generation"]) == generation], key=score_key)
@@ -28,7 +29,7 @@ def write_domain_paper_from_run(run_dir: Path, output_path: Path | None = None) 
     ]
     scores = [float(row["primary_score"]) for row in rows if isinstance(row.get("primary_score"), (int, float))]
     output = output_path or run_dir / "paper.md"
-    write_text(output, build_domain_paper(rows, best_by_generation, best, weakest, action, metrics, patch, scores))
+    write_text(output, build_domain_paper(rows, best_by_generation, best, weakest, action, metrics, patch, scores, ablation_report))
     return output
 
 
@@ -44,6 +45,7 @@ def write_domain_latex_from_run(run_dir: Path, output_path: Path | None = None) 
     action = read_json(best_node / "action.json")
     metrics = read_json(best_node / "metrics.json")
     patch = read_json(best_node / "patch_result.json")
+    ablation_report = read_ablation_report(run_dir)
     generations = sorted({int(row["generation"]) for row in rows})
     best_by_generation = [
         max([row for row in rows if int(row["generation"]) == generation], key=score_key)
@@ -52,7 +54,7 @@ def write_domain_latex_from_run(run_dir: Path, output_path: Path | None = None) 
     scores = [float(row["primary_score"]) for row in rows if isinstance(row.get("primary_score"), (int, float))]
     output = output_path or run_dir / "latex" / "paper.tex"
     ensure_dir(output.parent)
-    write_text(output, build_domain_latex(rows, best_by_generation, best, weakest, action, metrics, patch, scores))
+    write_text(output, build_domain_latex(rows, best_by_generation, best, weakest, action, metrics, patch, scores, ablation_report))
     return output
 
 
@@ -65,6 +67,11 @@ def load_population_rows(run_dir: Path) -> list[dict[str, Any]]:
 
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_ablation_report(run_dir: Path) -> dict[str, Any]:
+    path = run_dir / "codex_scientistv2" / "ablation_report.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def score_key(row: dict[str, Any]) -> float:
@@ -93,205 +100,110 @@ def build_domain_paper(
     metrics: dict[str, Any],
     patch: dict[str, Any],
     scores: list[float],
+    ablation_report: dict[str, Any] | None = None,
 ) -> str:
+    ablation_report = ablation_report or {}
     knobs = action.get("knobs") or {}
     env = action.get("env") or {}
     code_diff = patch.get("code_diff") or "No source change recorded."
+    controlled = ablation_report.get("controlled_ablations") or {}
     patch_table = summarize_group(rows, "patch_recipe_id")
-    operator_table = summarize_group(rows, "inheritance_mode")
     ablation_table = build_ablation_table(rows, best)
-    top_variant_table = build_top_variant_table(rows, best)
-    best_children = [
-        row for row in rows
-        if best["node_id"] in set(row.get("source_node_ids") or [])
-    ]
-    child_scores = [float(row["primary_score"]) for row in best_children if isinstance(row.get("primary_score"), (int, float))]
-    child_sentence = (
-        f"{len(best_children)} later candidates cited the best node; their mean primary score was {fmt(mean(child_scores))}."
-        if child_scores
-        else "No later candidate cited the best node directly."
-    )
-    return f"""# Persistent Action Supervision Improves Short-Budget TinyWorlds World Models
+    scores_text = fmt(mean(scores)) if scores else "N/A"
+    theme = paper_theme(best, rows)
+    return f"""# {theme['title']}
 
 ## Abstract
 
-Short-budget world-model training must learn visual prediction and action
-grounding before there is enough optimization time for elaborate imagination
-objectives. We study this problem in TinyWorlds, a compact action-conditioned
-world-model testbed. A 45-candidate automated research run discovered that the
-strongest intervention was not a larger model or a complex counterfactual loss,
-but a training-loop change: keep environment-action supervision active for the
-entire short training budget. The best candidate reached
-primary_score={fmt(best.get('primary_score'))} and val_mse={fmt(best.get('val_mse'))},
-outperforming more complex latent-imagination and counterfactual-action
-variants generated in the same run. These results suggest a practical ordering
-principle for small world models: stabilize action grounding before adding
-high-variance self-consistency objectives.
+{theme['abstract_prefix']} The selected method reached primary_score={fmt(best.get('primary_score'))} and val_mse={fmt(best.get('val_mse'))}. {theme['abstract_suffix']}
 
 ## 1. Introduction
 
-World models are useful when they predict how observations change under actions.
-In small-data or short-budget regimes, however, optimization pressure is scarce:
-the learner must build visual codes, action representations, and transition
-dynamics at the same time. A natural response is to add richer auxiliary losses,
-such as imagined-rollout consistency or counterfactual action contrast. Our
-results point to a simpler failure mode. If action supervision is removed too
-early, the dynamics model can optimize reconstruction while only weakly using
-the action signal.
-
-This paper asks whether persistent action supervision improves short-budget
-TinyWorlds world-model training. The answer in this exploratory run is yes: the
-best candidate used full-budget action supervision with environment-action
-conditioning, moderate pixel dynamics loss, and motion loss.
+{theme['introduction']}
 
 ## 2. Related Work
 
-World-model research studies learned predictive models that support control,
-planning, or imagination [1, 2]. Recent work on learnable action representations
-argues that action abstractions can be learned jointly with predictive dynamics
-[3]. Automated-science systems such as AI Scientist and AI Scientist-v2 explore
-how ideation, code editing, experiment execution, and paper writing can be
-integrated into a research loop [4, 5]. This paper uses an automated candidate
-population to search within the world-model design space, but the scientific
-claim is about the discovered TinyWorlds intervention rather than the search
-system itself.
+World-model research studies learned predictive models that support control, planning, or imagination. In action-conditioned settings, the model must also learn which changes are explained by control inputs rather than by visual persistence. Recent work on learnable action representations argues that action abstractions can be learned jointly with predictive dynamics. This paper studies a narrower question: under a short TinyWorlds budget, which training pressure produces the most reliable predictive model?
 
 ## 3. Method
 
-The discovered intervention keeps supervised action grounding active throughout
-the run. In the base training loop, action supervision is active only for an
-initial window:
+{theme['method_intro']}
 
 ```diff
 {code_diff.strip()}
 ```
 
-The best candidate used this configuration:
+Best-branch knobs:
 
 ```json
 {json.dumps(knobs, indent=2, sort_keys=True)}
 ```
 
-which produced these environment overrides:
+Environment overrides:
 
 ```json
 {json.dumps(env, indent=2, sort_keys=True)}
 ```
 
-The method combines three pressures:
-
-- action-conditioned dynamics prediction
-- decoded future reconstruction with a modest pixel loss
-- persistent supervised alignment to observed environment actions
-
-The intervention is intentionally small. It changes the schedule of action
-supervision rather than adding a new module. This makes it a useful baseline for
-testing whether more elaborate action-representation mechanisms are actually
-helping under short compute budgets.
+{theme['method_summary']}
 
 ## 4. Experimental Setup
 
-We evaluated {len(rows)} TinyWorlds candidates under a fixed short training
-budget. Each candidate ran the same canonical `train.py` harness in an isolated
-workspace and wrote `working/metrics.json`. The model had
-{metrics.get('params_M')}M parameters, used the `{metrics.get('dataset')}`
-dataset, and trained for {metrics.get('runtime_sec')} seconds in the best run.
-The primary score is the configured scalar objective; `val_mse` is the main
-predictive-error metric.
+We evaluated {len(rows)} method variants under a fixed short training budget on TinyWorlds. Each variant used the same canonical `train.py` harness in an isolated workspace and wrote `working/metrics.json`. The selected method used {metrics.get('params_M')}M parameters on the `{metrics.get('dataset')}` dataset for {metrics.get('runtime_sec')} seconds. The primary score is the configured scalar objective; `val_mse` is the main predictive-error metric.
 
-The best candidate metrics were:
+Figure 1 tracks the best score reached as additional variants were evaluated.
 
-```json
-{json.dumps(metrics, indent=2, sort_keys=True)}
-```
+![Best score by generation](figures/best_score_by_generation.svg)
+
+Figure 2 aggregates method families so the result is not only a single selected variant.
+
+![Patch-family mean scores](figures/patch_family_mean_scores.svg)
 
 ## 5. Results
 
 - total candidates: {len(rows)}
-- mean primary score: {fmt(mean(scores)) if scores else 'N/A'}
-- best primary score: {fmt(best.get('primary_score'))}
-- best validation MSE: {fmt(best.get('val_mse'))}
-- best recipe: `{best.get('recipe_id')}`
-- weakest recipe: `{weakest.get('recipe_id')}` with primary_score={fmt(weakest.get('primary_score'))}
+- mean primary score: {scores_text}
+- selected-method primary score: {fmt(best.get('primary_score'))}
+- selected-method validation MSE: {fmt(best.get('val_mse'))}
 
-### Focused Ablations
+### Controlled Component Ablations
+
+{controlled_ablation_markdown(controlled, best)}
+
+### Focused Comparisons
+
+{theme['ablation_summary']} These rows are deliberately small: they compare the selected method to conceptually nearby alternatives rather than dumping every tried variant.
 
 | Comparison | Recipe | Patch | Operator | Primary score | Val MSE | Interpretation |
 | --- | --- | --- | --- | ---: | ---: | --- |
 {ablation_table}
 
-### Strongest Variants
+### Aggregate Families
 
-| Rank | Recipe | Patch | Operator | Primary score | Val MSE |
-| ---: | --- | --- | --- | ---: | ---: |
-{top_variant_table}
-
-### Patch-Family Summary
+{theme['aggregate_summary']}
 
 | Patch recipe | N | Best score | Mean score |
 | --- | ---: | ---: | ---: |
 {patch_table}
 
-### Search-Operator Summary
+## 6. Discussion
 
-| Operator | N | Best score | Mean score |
-| --- | ---: | ---: | ---: |
-{operator_table}
-
-The strongest variants were simpler than the most ambitious generated ideas.
-The best result came from rejecting accumulated edit complexity and preserving
-action supervision for the full budget. Similar recovery variants later reached
-primary_score={best_by_generation[8].get('primary_score') if len(best_by_generation) > 8 else 'N/A'}
-and {best_by_generation[12].get('primary_score') if len(best_by_generation) > 12 else 'N/A'}.
-By contrast, candidates built around extra imagination-cycle or counterfactual
-machinery generally remained below the best full-supervision branch.
-{child_sentence}
-
-## 6. Analysis
-
-Persistent action supervision likely helps because the model does not have time
-to bootstrap a stable action representation before the dynamics phase dominates.
-Keeping the action signal present throughout training supplies a stable anchor:
-the dynamics model can learn next-state prediction while action labels remain
-available as a grounded explanatory variable.
-
-The negative result is equally important. The candidate population tried more
-ambitious mechanisms, including latent imagination-cycle consistency and
-counterfactual action contrast. Those ideas are attractive, but under this
-budget they added optimization demands before the base action-conditioned model
-was reliable. The result suggests a staged recipe for small world models:
-
-1. establish persistent action grounding
-2. verify predictive dynamics quality
-3. then introduce imagination or counterfactual constraints
+{theme['discussion']}
 
 ## 7. Limitations
 
-This is an exploratory automated run, not a final benchmark. The experiment used
-one TinyWorlds setting, a short runtime, and a generated candidate population.
-The best branch should be retested across independent seeds, longer budgets,
-larger TinyWorlds configurations, and direct controls that isolate action
-supervision duration from action supervision weight. The current evidence is
-predictive, not behavioral: we have not yet shown improved downstream planning.
+This is an exploratory short-budget study, not a final benchmark. The experiment used one TinyWorlds setting, short runtimes, and a finite candidate set. The selected method should be retested across independent seeds, longer budgets, larger TinyWorlds configurations, and direct controls that isolate the apparent winning component from correlated knobs and source edits. The current evidence is predictive, not behavioral: we have not yet shown improved downstream planning.
 
 ## 8. Conclusion
 
-The best discovered TinyWorlds world-model intervention was persistent action
-supervision. In short-budget training, a small schedule change outperformed more
-complex generated action-representation ideas. This supports a conservative but
-useful principle: before asking a compact world model to learn rich imagined
-counterfactuals, keep its action grounding active long enough for dynamics
-learning to use it.
+{theme['conclusion']}
 
-## Bibliography
+## Appendix: Candidate Provenance
 
-1. David Ha and Juergen Schmidhuber. "World Models." 2018.
-2. Danijar Hafner et al. Dreamer-style latent dynamics world-model work.
-3. "World Model Pre-training with Learnable Action Representation." ECCV, 2024.
-4. Chris Lu et al. "The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery." arXiv:2408.06292, 2024.
-5. Yamada et al. "The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search." arXiv:2504.08066, 2025.
+The candidate lineage is included only for auditability and should not be the main narrative of the paper.
+
+![Candidate lineage](figures/cultural_tree.svg)
 """
-
 
 def build_domain_latex(
     rows: list[dict[str, Any]],
@@ -302,10 +214,13 @@ def build_domain_latex(
     metrics: dict[str, Any],
     patch: dict[str, Any],
     scores: list[float],
+    ablation_report: dict[str, Any] | None = None,
 ) -> str:
+    ablation_report = ablation_report or {}
     knobs = action.get("knobs") or {}
     env = action.get("env") or {}
     code_diff = patch.get("code_diff") or "No source change recorded."
+    controlled = ablation_report.get("controlled_ablations") or {}
     best_children = [
         row for row in rows
         if best["node_id"] in set(row.get("source_node_ids") or [])
@@ -320,9 +235,22 @@ def build_domain_latex(
     generation_12 = best_by_generation[12].get("primary_score") if len(best_by_generation) > 12 else None
     mean_score = fmt(mean(scores)) if scores else "N/A"
     theme = paper_theme(best, rows)
-    return r"""\documentclass[10pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage{times}
+    return r"""\documentclass{article}
+\IfFileExists{icml2025.sty}{
+  \usepackage{icml2025}
+}{
+  \usepackage[margin=1in]{geometry}
+  \usepackage{times}
+  \newcommand{\icmltitle}[1]{\begin{center}{\Large\bf #1}\end{center}}
+  \newcommand{\icmlsetsymbol}[2]{}
+  \newcommand{\icmlauthor}[2]{\begin{center}#1\end{center}}
+  \newcommand{\icmlaffiliation}[3]{}
+  \newcommand{\icmlcorrespondingauthor}[2]{}
+  \newcommand{\printAffiliationsAndNotice}[1]{}
+  \newcommand{\icmlkeywords}[1]{}
+  \newcommand{\theHalgorithm}{\arabic{algorithm}}
+  \newenvironment{icmlauthorlist}{}{}
+}
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -330,6 +258,7 @@ def build_domain_latex(
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{subcaption}
 
 \lstset{
   basicstyle=\ttfamily\footnotesize,
@@ -340,15 +269,20 @@ def build_domain_latex(
   xrightmargin=0.5em
 }
 
-\title{""" + latex_escape(theme["title"]) + r"""}
-\author{Codex-Scientist-v2}
-\date{}
-
 \begin{document}
-\maketitle
+\twocolumn[
+\icmltitle{""" + latex_escape(theme["title"]) + r"""}
+\begin{icmlauthorlist}
+\icmlauthor{Anonymous Authors}{anon}
+\end{icmlauthorlist}
+\icmlaffiliation{anon}{Anonymous Institution}{}
+\icmlcorrespondingauthor{Anonymous Authors}{anonymous@example.com}
+\icmlkeywords{world models, action-conditioned dynamics, short-budget learning, robust dynamics}
+\vskip 0.3in
+]
 
 \begin{abstract}
-""" + latex_escape(theme["abstract_prefix"]) + r""" The best candidate reached primary score
+""" + latex_escape(theme["abstract_prefix"]) + r""" The selected method reached primary score
 """ + latex_escape(fmt(best.get("primary_score"))) + r""" and validation MSE
 """ + latex_escape(fmt(best.get("val_mse"))) + r""". """ + latex_escape(theme["abstract_suffix"]) + r"""
 \end{abstract}
@@ -360,15 +294,13 @@ def build_domain_latex(
 \section{Related Work}
 
 World-model research studies learned predictive models that support control,
-planning, or imagination \cite{ha2018worldmodels}. Recent work on learnable
-action representations argues that action abstractions can be learned jointly
-with predictive dynamics \cite{prelar2024}. Automated-science systems such as
-AI Scientist and AI Scientist-v2 explore how ideation, code editing, experiment
-execution, and paper writing can be integrated into a research loop
-\cite{aiscientist2024,aiscientistv2_2025}. This paper uses an automated
-candidate population to search within the world-model design space, but the
-scientific claim is about the discovered TinyWorlds intervention rather than the
-search system itself.
+planning, or imagination \cite{ha2018worldmodels}. In action-conditioned
+settings, the model must also learn which changes are explained by control
+inputs rather than by visual persistence. Recent work on learnable action
+representations argues that action abstractions can be learned jointly with
+predictive dynamics \cite{prelar2024}. This paper studies a narrower question:
+under a short TinyWorlds budget, which training pressure produces the most
+reliable predictive model?
 
 \section{Method}
 
@@ -378,7 +310,7 @@ search system itself.
 """ + latex_lst(code_diff.strip()) + r"""
 \end{lstlisting}
 
-The best candidate used this configuration:
+The selected method used this configuration:
 
 \begin{lstlisting}
 """ + latex_lst(json.dumps(knobs, indent=2, sort_keys=True)) + r"""
@@ -394,9 +326,9 @@ which produced these environment overrides:
 
 \section{Experimental Setup}
 
-We evaluated """ + str(len(rows)) + r""" TinyWorlds candidates under a fixed short training
-budget. Each candidate ran the same canonical \texttt{train.py} harness in an
-isolated workspace and wrote \texttt{working/metrics.json}. The best run used
+We evaluated """ + str(len(rows)) + r""" method variants under a fixed short training
+budget on TinyWorlds. Each variant ran the same canonical \texttt{train.py} harness in an
+isolated workspace and wrote \texttt{working/metrics.json}. The selected method used
 """ + latex_escape(str(metrics.get("params_M"))) + r"""M parameters, the
 \texttt{""" + latex_escape(str(metrics.get("dataset"))) + r"""} dataset, and ran for
 """ + latex_escape(str(metrics.get("runtime_sec"))) + r""" seconds. The primary score is the
@@ -411,35 +343,62 @@ metric.
     \fbox{\parbox{0.72\linewidth}{Generated figure missing:
     \texttt{../figures/best\_score\_by\_generation.pdf}.}}
   }
-\caption{Best primary score by generation in the TinyWorlds run.}
+\caption{Best primary score by generation in the benchmark run.}
   \label{fig:best-score}
 \end{figure}
 
 \begin{figure}[t]
   \centering
-  \IfFileExists{../figures/cultural_tree.pdf}{%
-    \includegraphics[width=\linewidth]{../figures/cultural_tree.pdf}
+  \IfFileExists{../figures/patch_family_mean_scores.pdf}{%
+    \includegraphics[width=0.82\linewidth]{../figures/patch_family_mean_scores.pdf}
   }{%
-    \fbox{\parbox{0.9\linewidth}{Generated tree figure missing:
-    \texttt{../figures/cultural\_tree.pdf}.}}
+    \fbox{\parbox{0.9\linewidth}{Generated patch-family figure missing:
+    \texttt{../figures/patch\_family\_mean\_scores.pdf}.}}
   }
-  \caption{Cultural lineage tree. Solid edges are explicit source transfers;
-  dotted vertical edges are same-agent parent links.}
-  \label{fig:tree}
+  \caption{Mean primary score by patch family. This summarizes which intervention
+  families were consistently competitive, rather than only reporting the best
+  selected variant.}
+  \label{fig:patch-family}
 \end{figure}
 
 \section{Results}
 
-Across all candidates, the mean primary score was """ + latex_escape(mean_score) + r""". The
-best primary score was """ + latex_escape(fmt(best.get("primary_score"))) + r""" with validation
-MSE """ + latex_escape(fmt(best.get("val_mse"))) + r""". The weakest recipe was
-\texttt{""" + latex_escape(str(weakest.get("recipe_id"))) + r"""} with primary score
-""" + latex_escape(fmt(weakest.get("primary_score"))) + r""".
+Figure~\ref{fig:best-score} shows the best score reached by each generation, and
+Figure~\ref{fig:patch-family} summarizes whether the strongest result is part of
+a broader competitive intervention family.
+
+Across all evaluated variants, the mean primary score was """ + latex_escape(mean_score) + r""". The
+selected method reached primary score """ + latex_escape(fmt(best.get("primary_score"))) + r""" with validation
+MSE """ + latex_escape(fmt(best.get("val_mse"))) + r""".
+
+\subsection{Controlled Component Ablations}
+
+Table~\ref{tab:controlled-ablations} reruns the selected method under a smaller
+controlled-ablation budget and isolates the contribution of copied knobs versus
+the selected patch/source edit. These controls are more important than the
+variant ranking because they test whether the proposed method survives component
+removal.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{0.35\linewidth}rrp{0.28\linewidth}}
+\toprule
+Control & Score & Val. MSE & Interpretation \\
+\midrule
+""" + latex_controlled_ablation_rows(controlled, best) + r"""
+\bottomrule
+\end{tabular}
+\caption{Controlled component ablations for the selected method.}
+\label{tab:controlled-ablations}
+\end{table}
 
 \subsection{Focused Ablations}
 
-Table~\ref{tab:ablations} compares the best branch against initial baselines,
-negative-result controls, and close variants. """ + latex_escape(theme["ablation_summary"]) + r"""
+Table~\ref{tab:ablations} compares the selected method against initial baselines,
+negative-result controls, and close variants. """ + latex_escape(theme["ablation_summary"]) + r""" These rows are deliberately small:
+they compare the selected method to conceptually nearby alternatives rather than
+dumping every tried variant.
 
 \begin{table}[t]
 \centering
@@ -451,22 +410,8 @@ Comparison & Recipe & Patch & Score & Val. MSE \\
 """ + latex_ablation_rows(rows, best) + r"""
 \bottomrule
 \end{tabular}
-\caption{Focused comparisons selected from the search trace.}
+\caption{Focused comparisons selected from nearby method variants.}
 \label{tab:ablations}
-\end{table}
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{rp{0.38\linewidth}p{0.24\linewidth}rr}
-\toprule
-Rank & Recipe & Operator / patch & Score & Val. MSE \\
-\midrule
-""" + latex_top_variant_rows(rows) + r"""
-\bottomrule
-\end{tabular}
-\caption{Top discovered TinyWorlds variants.}
-\label{tab:top-variants}
 \end{table}
 
 \subsection{Aggregate Families}
@@ -487,35 +432,15 @@ Patch recipe & N & Best score & Mean score \\
 \label{tab:patch-families}
 \end{table}
 
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{lrrr}
-\toprule
-Operator & N & Best score & Mean score \\
-\midrule
-""" + latex_group_rows(rows, "inheritance_mode") + r"""
-\bottomrule
-\end{tabular}
-\caption{Search-operator aggregate scores.}
-\label{tab:operator-families}
-\end{table}
-
-""" + latex_escape(theme["lineage_result"].format(
-        generation_8=fmt(generation_8),
-        generation_12=fmt(generation_12),
-        child_sentence=child_sentence,
-    )) + r"""
-
 \section{Discussion}
 
 """ + latex_escape(theme["discussion"]) + r"""
 
 \section{Limitations}
 
-This is an exploratory automated run, not a final benchmark. The experiment used
-one TinyWorlds setting, a short runtime, and a generated candidate population.
-The best branch should be retested across independent seeds, longer budgets,
+This is an exploratory short-budget study, not a final benchmark. The experiment used
+one TinyWorlds setting, short runtimes, and a finite candidate set.
+The selected method should be retested across independent seeds, longer budgets,
 larger TinyWorlds configurations, and direct controls that isolate the apparent
 winning component from correlated knobs and source edits. The current evidence is
 predictive, not behavioral: we have not yet shown improved downstream planning.
@@ -524,7 +449,29 @@ predictive, not behavioral: we have not yet shown improved downstream planning.
 
 """ + latex_escape(theme["conclusion"]) + r"""
 
-\bibliographystyle{plain}
+\appendix
+\section{Candidate Provenance}
+
+The manuscript above treats the candidate population as an experimental design
+tool rather than as the scientific contribution. For auditability, Figure
+~\ref{fig:tree-appendix} shows the full lineage used to select candidate
+interventions and to identify negative-result controls.
+
+\begin{figure*}[t]
+  \centering
+  \IfFileExists{../figures/cultural_tree.pdf}{%
+    \includegraphics[width=\textwidth]{../figures/cultural_tree.pdf}
+  }{%
+    \fbox{\parbox{0.9\textwidth}{Generated lineage figure missing:
+    \texttt{../figures/cultural\_tree.pdf}.}}
+  }
+  \caption{Full candidate lineage. Solid edges denote explicit source transfer;
+  dotted edges denote same-agent parent links. This figure is provenance, not
+  the central result.}
+  \label{fig:tree-appendix}
+\end{figure*}
+
+\bibliographystyle{icml2025}
 \bibliography{references}
 
 \end{document}
@@ -549,7 +496,7 @@ def build_ablation_table(rows: list[dict[str, Any]], best: dict[str, Any]) -> st
         (
             "Initial robust decoder baseline",
             best_matching(rows, recipe_prefix="g0_agent1_robust_decoder_loss"),
-            "Strong initial non-persistent action baseline.",
+            "Strong initial robust-reconstruction baseline.",
         ),
         (
             "Initial action-gradient baseline",
@@ -562,9 +509,9 @@ def build_ablation_table(rows: list[dict[str, Any]], best: dict[str, Any]) -> st
             "Negative control for short-budget phase scheduling.",
         ),
         (
-            "Best discovered method",
+            "Selected method",
             best,
-            "Persistent action supervision with modest dynamics and motion losses.",
+            "Method selected for component testing.",
         ),
         (
             "Closest repeat of best method",
@@ -622,7 +569,7 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
     run_text = " ".join(str(row.get("recipe_id", "")) + " " + str(row.get("rationale", "")) for row in rows).lower()
     if patch == "full_budget_action_supervision":
         return {
-            "title": "Persistent Action Supervision Improves Short-Budget TinyWorlds World Models",
+            "title": "Persistent Action Supervision Stabilizes Short-Budget World Models",
             "abstract_prefix": (
                 "Short-budget world-model training must learn visual prediction and action grounding before there is enough "
                 "optimization time for elaborate imagination objectives. We study this problem in TinyWorlds, where the strongest "
@@ -636,12 +583,12 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "World models are useful when they predict how observations change under actions. In short-budget regimes, "
                 "optimization pressure is scarce: the learner must build visual codes, action representations, and transition "
                 "dynamics at the same time. This paper asks whether persistent action supervision improves TinyWorlds world-model "
-                "training. The exploratory answer is yes: the best candidate kept supervised action grounding active throughout "
+                "training. The exploratory answer is yes: the selected method kept supervised action grounding active throughout "
                 "the run."
             ),
             "method_intro": (
                 "The discovered intervention keeps supervised action grounding active throughout the run. In the base training loop, "
-                "action supervision is active only for an initial window; the best candidate changed the schedule as follows:"
+                "action supervision is active only for an initial window; the selected method changed the schedule as follows:"
             ),
             "method_summary": (
                 "The method combines action-conditioned dynamics prediction, decoded future reconstruction, and persistent supervised "
@@ -650,8 +597,8 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
             ),
             "ablation_summary": "The best result came from preserving action supervision for the full budget.",
             "aggregate_summary": (
-                "The patch-family summary in Table~\\ref{tab:patch-families} shows that full-budget action supervision produced the "
-                "best single candidate. The operator-family summary separates this effect from the cultural operator used to introduce it."
+                "The patch-family summary shows that full-budget action supervision produced the best single candidate. "
+                "The aggregate view separates the method family from a single selected variant."
             ),
             "lineage_result": (
                 "Similar recovery variants later reached primary scores of {generation_8} and {generation_12}. "
@@ -667,28 +614,31 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "schedule change outperformed more complex generated action-representation ideas."
             ),
         }
-    if "object" in run_text or "local" in run_text:
+    object_theme = any(
+        marker in f" {run_text} "
+        for marker in [" object-local ", " object-centric ", " object curriculum ", " object-curriculum "]
+    ) or "object_" in recipe or "object-" in recipe
+    if object_theme:
         return {
-            "title": "Object-Local Robust Dynamics Improve Short-Budget TinyWorlds Prediction",
+            "title": "Object-Local Robust Dynamics for Short-Budget World Model Learning",
             "abstract_prefix": (
-                "We ran a fresh Codex-Scientist-v2 tree whose initial context came from multiagent literature-review nodes on "
-                "world models, action-conditioned dynamics, and object-centric prediction. The search targeted object-local "
-                "transition learning: changed pixels, motion priors, and robust decoded future reconstruction."
+                "TinyWorlds observations contain large static regions and small controllable regions. We study object-local "
+                "transition learning through changed-pixel weighting, motion priors, and robust decoded future reconstruction."
             ),
             "abstract_suffix": (
-                "The strongest branch copied a robust object-curriculum recombination, suggesting that short-budget TinyWorlds "
-                "models may benefit more from localized transition pressure than from more elaborate action-abstraction objectives."
+                "The results suggest that short-budget TinyWorlds models may benefit more from localized transition pressure "
+                "than from more elaborate action-abstraction objectives."
             ),
             "introduction": (
                 "World-model errors are rarely uniform across an observation. In TinyWorlds, much of the frame can be static while "
                 "a small set of controllable regions carries the transition signal. This paper studies whether a short-budget world "
-                "model improves when training pressure is localized toward changed or object-like regions. Unlike earlier runs that "
-                "centered persistent action supervision or counterfactual action abstractions, this run began with multiagent "
-                "literature-review nodes and explored object-local dynamics, robust reconstruction, and dynamics-first curricula."
+                "model improves when training pressure is localized toward changed or object-like regions. The central hypothesis "
+                "is that robust reconstruction plus local transition weighting is a better use of a short budget than adding richer "
+                "action-abstraction machinery before the base predictor is stable."
             ),
             "method_intro": (
-                "The best branch used a robust Smooth-L1 dynamics-pixel recipe with an object-local curriculum inherited through "
-                "copy after a successful recombination. The recorded source diff, if any, is:"
+                "The selected method used a robust Smooth-L1 dynamics-pixel recipe with an object-local curriculum. "
+                "The recorded source diff, if any, is:"
             ),
             "method_summary": (
                 "The method combines robust decoded future reconstruction with knobs that emphasize changed pixels and a shallow "
@@ -701,82 +651,28 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "the likely active ingredients."
             ),
             "aggregate_summary": (
-                "The patch-family summary in Table~\\ref{tab:patch-families} compares robust dynamics, sharpened change weighting, "
-                "and dynamics-first curricula. The operator-family summary tests whether copied or recombined object-local variants "
-                "were favored by the cultural search."
+                "The patch-family summary compares robust dynamics, sharpened change weighting, and dynamics-first curricula. "
+                "This supports the object-local claim without relying on a ranked dump of every variant."
             ),
             "lineage_result": (
-                "The winning branch copied the prior generation's robust object-curriculum recombination, preserving the same "
-                "source lineage rather than adding another novelty step. {child_sentence}"
+                "The object-local variant preserves robust reconstruction while concentrating training pressure on local transition errors."
             ),
             "discussion": (
                 "The result is consistent with a simple hypothesis: when compute is scarce, reducing error on locally changing regions "
-                "can be easier than learning a richer global latent action abstraction. The literature-node stage helped frame the "
-                "search around object-centric dynamics, but the current evidence is still exploratory and needs seed replication."
+                "can be easier than learning a richer global latent action abstraction. The current evidence is still exploratory "
+                "and needs seed replication."
             ),
             "conclusion": (
-                "This third paper run identifies object-local robust dynamics as the strongest TinyWorlds candidate. The next direct "
-                "test is to replicate the copied robust object-curriculum branch across seeds and isolate changed-pixel weighting, "
-                "robust pixel loss, and curriculum depth."
-            ),
-        }
-    if "fresh_" in recipe or "motion" in recipe or "change" in recipe or "motion" in rationale or "change" in rationale:
-        return {
-            "title": "Motion-Calibrated Robust Dynamics Improve a Fresh TinyWorlds World-Model Search",
-            "abstract_prefix": (
-                "We ran a fresh Codex-Scientist-v2 tree with no previous-run action schedule or summaries, targeting uncertainty, "
-                "change-focused dynamics, robust decoded reconstruction, and motion calibration in TinyWorlds. The strongest branch "
-                "was a motion-calibrated Smooth-L1 dynamics-pixel variant rather than an action-supervision or counterfactual-action method."
-            ),
-            "abstract_suffix": (
-                "The result suggests that, under short compute budgets, robust reconstruction and motion-aware calibration may be a more "
-                "reliable next research direction than adding high-variance action-abstraction objectives."
-            ),
-            "introduction": (
-                "This paper reports a fresh TinyWorlds search whose initial context deliberately avoided the previous action-supervision "
-                "and counterfactual-action runs. The new population explored change-weighted dynamics, robust pixel reconstruction, "
-                "earlier dynamics curricula, and motion calibration. The central question is whether short-budget world models benefit "
-                "more from focusing loss on changing/moving regions than from adding richer action abstractions."
-            ),
-            "method_intro": (
-                "The best branch used a robust Smooth-L1 dynamics-pixel objective with motion calibration knobs. No new source edit was "
-                "needed beyond the selected patch recipe; the branch changed the training pressure through the following recorded diff, "
-                "if any:"
-            ),
-            "method_summary": (
-                "The method emphasizes decoded future robustness and motion-aware calibration: dynamics pixel loss is made robust, and "
-                "motion losses focus the short training budget on changes that matter for future prediction."
-            ),
-            "ablation_summary": (
-                "The best branch emerged late in the fresh tree and should be read as exploratory evidence for motion-calibrated robust "
-                "dynamics, not as proof of a universal improvement."
-            ),
-            "aggregate_summary": (
-                "The patch-family summary in Table~\\ref{tab:patch-families} compares robust dynamics, change weighting, and curriculum "
-                "families. The operator-family summary shows whether copy, mutate, recombine, reject, or invent produced the strongest branch."
-            ),
-            "lineage_result": (
-                "The winning branch arose from same-agent mutation after earlier change/robustness trials. {child_sentence}"
-            ),
-            "discussion": (
-                "The fresh run points toward a different hypothesis than the previous action-supervision paper. Motion-calibrated robust "
-                "dynamics may work because short-budget models can improve predictive quality by allocating loss to moving or changing "
-                "regions while avoiding brittle objectives that require well-formed latent action abstractions. The controlled ablations "
-                "remain short and should be treated as stress tests rather than final evidence."
-            ),
-            "conclusion": (
-                "In this fresh tree, the best TinyWorlds branch was motion-calibrated robust dynamics. The result motivates a focused "
-                "follow-up: replicate this branch across seeds and isolate whether motion loss, robust pixel loss, or their combination "
-                "drives the gain."
+                "Object-local robust dynamics is the strongest TinyWorlds candidate in this run. The next direct test is to replicate "
+                "the robust object-curriculum branch across seeds and isolate changed-pixel weighting, robust pixel loss, and curriculum depth."
             ),
         }
     if "counterfactual" in run_text or "latent" in run_text or "imagination" in run_text:
         return {
-            "title": "Counterfactual Action Objectives Underperform Robust Reconstruction in Short-Budget TinyWorlds",
+            "title": "Counterfactual Action Objectives Underperform Robust Reconstruction in Short-Budget World Models",
             "abstract_prefix": (
-                "We ran a targeted TinyWorlds search over latent-action teachers, imagination-cycle consistency, and counterfactual "
-                "action discrimination. The strongest result did not come from the most conceptually ambitious action-abstraction "
-                "mechanism; it came from a simpler robust reconstruction baseline or recovery branch."
+                "Latent-action teachers, imagination-cycle consistency, and counterfactual action discrimination are appealing ways "
+                "to make world models action-sensitive. We test whether these objectives help in short-budget TinyWorlds training."
             ),
             "abstract_suffix": (
                 "These negative results suggest that counterfactual action objectives are promising but too optimization-hungry for the "
@@ -788,7 +684,7 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "counterfactual hinges. The key result is negative: these mechanisms did not clearly beat simpler robust reconstruction."
             ),
             "method_intro": (
-                "The population tested latent and counterfactual action objectives. The best branch's recorded source diff, if any, is:"
+                "The method family tested latent and counterfactual action objectives. The selected method's recorded source diff, if any, is:"
             ),
             "method_summary": (
                 "The method family asks whether imagined next frames should re-encode to their generating action and whether wrong "
@@ -800,12 +696,10 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "reconstruction or recovery variants."
             ),
             "aggregate_summary": (
-                "The patch-family and operator summaries separate robust reconstruction, baseline edits, and recombination/copy effects "
-                "within the targeted counterfactual-action search."
+                "The patch-family summary separates robust reconstruction and baseline edits within the counterfactual-action variants."
             ),
             "lineage_result": (
-                "The action-abstraction lineage produced useful negative evidence, but did not surpass the simpler robust branch. "
-                "{child_sentence}"
+                "The action-abstraction variants produced useful negative evidence, but did not surpass the simpler robust reconstruction method."
             ),
             "discussion": (
                 "The negative result is scientifically useful. Counterfactual and imagination-cycle losses may require a stronger base "
@@ -813,23 +707,154 @@ def paper_theme(best: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, s
                 "and transition modeling are stable."
             ),
             "conclusion": (
-                "This targeted search did not support counterfactual action objectives as an immediate improvement for short-budget "
+                "These experiments did not support counterfactual action objectives as an immediate improvement for short-budget "
                 "TinyWorlds. A staged approach should first establish robust predictive dynamics, then add action-identifiability losses."
             ),
         }
+    if "fresh_" in recipe or "motion" in recipe or "change" in recipe or "motion" in rationale or "change" in rationale:
+        return {
+            "title": "Motion-Calibrated Robust Dynamics for Short-Budget World Models",
+            "abstract_prefix": (
+                "Short-budget TinyWorlds models must allocate loss to the parts of the scene that actually move. We evaluate "
+                "motion-calibrated robust dynamics: a Smooth-L1 decoded-future objective paired with motion-aware loss weights."
+            ),
+            "abstract_suffix": (
+                "The result suggests that, under short compute budgets, robust reconstruction and motion-aware calibration may be a more "
+                "reliable next research direction than adding high-variance action-abstraction objectives."
+            ),
+            "introduction": (
+                "TinyWorlds prediction quality depends disproportionately on changing and moving regions. Static background pixels can "
+                "dominate reconstruction loss while contributing little to action-conditioned dynamics. This paper asks whether robust "
+                "decoded-future reconstruction with motion-aware calibration improves short-budget world-model training."
+            ),
+            "method_intro": (
+                "The selected method used a robust Smooth-L1 dynamics-pixel objective with motion calibration knobs. No new source edit was "
+                "needed beyond the selected patch recipe; the method changed the training pressure through the following recorded diff, "
+                "if any:"
+            ),
+            "method_summary": (
+                "The method emphasizes decoded future robustness and motion-aware calibration: dynamics pixel loss is made robust, and "
+                "motion losses focus the short training budget on changes that matter for future prediction."
+            ),
+            "ablation_summary": (
+                "The selected method should be read as exploratory evidence for motion-calibrated robust dynamics, not as proof of a universal improvement."
+            ),
+            "aggregate_summary": (
+                "The patch-family summary compares robust dynamics, change weighting, and curriculum families."
+            ),
+            "lineage_result": (
+                "The method combines the robust decoded-future loss with motion calibration rather than adding an action-abstraction module."
+            ),
+            "discussion": (
+                "Motion-calibrated robust dynamics may work because short-budget models can improve predictive quality by allocating "
+                "loss to moving or changing regions while avoiding brittle objectives that require well-formed latent action abstractions. "
+                "The controlled ablations remain short and should be treated as stress tests rather than final evidence."
+            ),
+            "conclusion": (
+                "Motion-calibrated robust dynamics is the selected method in this run. The result motivates a focused follow-up: replicate "
+                "the method across seeds and isolate whether motion loss, robust pixel loss, or their combination drives the gain."
+            ),
+        }
     return {
-        "title": "A Fresh Codex-Scientist-v2 TinyWorlds Search Identifies a Short-Budget World-Model Baseline",
-        "abstract_prefix": "We ran a fresh Codex-Scientist-v2 TinyWorlds tree and evaluated candidate world-model interventions under a short budget.",
-        "abstract_suffix": "The result should be interpreted as exploratory evidence for the best branch's design choices.",
-        "introduction": "This paper reports a fresh automated TinyWorlds search and analyzes the best discovered world-model intervention.",
-        "method_intro": "The best branch used the following recorded source diff, if any:",
+        "title": "Controlled Component Ablations for Short-Budget World Model Training",
+        "abstract_prefix": "We evaluate candidate TinyWorlds world-model interventions under a short training budget.",
+        "abstract_suffix": "The result should be interpreted as exploratory evidence for the selected method's design choices.",
+        "introduction": "This paper analyzes the strongest TinyWorlds world-model intervention observed under a fixed short training budget.",
+        "method_intro": "The selected method used the following recorded source diff, if any:",
         "method_summary": "The method is defined by the recorded action, knobs, patch recipe, and source diff preserved in the run artifacts.",
-        "ablation_summary": "The focused comparisons summarize the best branch against nearby alternatives.",
-        "aggregate_summary": "The aggregate tables summarize patch-family and operator-family performance.",
+        "ablation_summary": "The focused comparisons summarize the selected method against nearby alternatives.",
+        "aggregate_summary": "The aggregate table summarizes patch-family performance.",
         "lineage_result": "{child_sentence}",
         "discussion": "The result is exploratory and should be followed by controlled replication and component isolation.",
         "conclusion": "The fresh run identifies a candidate intervention for follow-up TinyWorlds experiments.",
     }
+
+
+def latex_controlled_ablation_rows(controlled: dict[str, Any], best: dict[str, Any]) -> str:
+    controls = controlled.get("controls") or []
+    if not controls:
+        return (
+            r"\multicolumn{4}{p{0.95\linewidth}}{No controlled ablation reruns were found; "
+            r"the paper should not claim component-level causality from search-trace comparisons alone.} \\"
+        )
+    labels = {
+        "repeat": "Repeat selected method",
+        "knobs_only": "Knobs only",
+        "patch_only": "Patch/source only",
+        "minimal_baseline": "Minimal baseline",
+    }
+    lines = []
+    for control in controls:
+        ablation_id = str(control.get("ablation_id", ""))
+        metrics = control.get("metrics") or {}
+        if "knobs_only" in ablation_id:
+            key = "knobs_only"
+            interpretation = "Tests whether tuned scalar settings explain the gain."
+        elif "patch_only" in ablation_id:
+            key = "patch_only"
+            interpretation = "Tests whether source/patch changes suffice without tuned knobs."
+        elif "minimal_baseline" in ablation_id:
+            key = "minimal_baseline"
+            interpretation = "Removes selected-method components as a negative control."
+        else:
+            key = "repeat"
+            interpretation = "Checks whether the selected method survives an independent rerun."
+        lines.append(
+            " & ".join(
+                [
+                    latex_escape(labels[key]),
+                    latex_escape(fmt(metrics.get("primary_score"))),
+                    latex_escape(fmt(metrics.get("val_mse"))),
+                    latex_escape(interpretation),
+                ]
+            )
+            + r" \\"
+        )
+    source_score = controlled.get("source_best_score", best.get("primary_score"))
+    lines.insert(
+        0,
+        " & ".join(
+            [
+                "Selected method",
+                latex_escape(fmt(source_score)),
+                latex_escape(fmt(best.get("val_mse"))),
+                "Original method selected for component testing.",
+            ]
+        )
+        + r" \\"
+    )
+    return "\n".join(lines)
+
+
+def controlled_ablation_markdown(controlled: dict[str, Any], best: dict[str, Any]) -> str:
+    controls = controlled.get("controls") or []
+    if not controls:
+        return "No controlled ablation reruns were found; do not claim component-level causality from variant comparisons alone."
+    lines = [
+        "| Control | Primary score | Val MSE | Interpretation |",
+        "| --- | ---: | ---: | --- |",
+        (
+            f"| Selected method | {fmt(controlled.get('source_best_score', best.get('primary_score')))} | "
+            f"{fmt(best.get('val_mse'))} | Original method selected for component testing. |"
+        ),
+    ]
+    for control in controls:
+        ablation_id = str(control.get("ablation_id", ""))
+        metrics = control.get("metrics") or {}
+        if "knobs_only" in ablation_id:
+            label = "Knobs only"
+            interpretation = "Tests whether tuned scalar settings explain the gain."
+        elif "patch_only" in ablation_id:
+            label = "Patch/source only"
+            interpretation = "Tests whether source/patch changes suffice without tuned knobs."
+        elif "minimal_baseline" in ablation_id:
+            label = "Minimal baseline"
+            interpretation = "Removes selected-method components as a negative control."
+        else:
+            label = "Repeat selected method"
+            interpretation = "Checks whether the selected method survives an independent rerun."
+        lines.append(f"| {label} | {fmt(metrics.get('primary_score'))} | {fmt(metrics.get('val_mse'))} | {interpretation} |")
+    return "\n".join(lines)
 
 
 def latex_ablation_rows(rows: list[dict[str, Any]], best: dict[str, Any]) -> str:
@@ -837,7 +862,7 @@ def latex_ablation_rows(rows: list[dict[str, Any]], best: dict[str, Any]) -> str
         ("Initial robust decoder", best_matching(rows, recipe_prefix="g0_agent1_robust_decoder_loss")),
         ("Initial action-gradient", best_matching(rows, recipe_prefix="g0_agent0_auxiliary_action_contrast")),
         ("Initial curriculum", best_matching(rows, recipe_prefix="g0_agent2_short_budget_curriculum")),
-        ("Best discovered method", best),
+        ("Selected method", best),
         ("Closest repeat", best_matching(rows, recipe_prefix="g8_agent2_reject_complexity_full_budget_actions")),
         ("Imagination-cycle variant", best_matching(rows, recipe_prefix="g1_agent1_imagination_action_cycle")),
         ("Counterfactual variant", best_matching(rows, recipe_prefix="g2_agent1_counterfactual_imagination_bijection")),

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -14,7 +15,9 @@ import yaml
 from commsci.artifacts import ensure_dir, write_json, write_text
 from commsci.codex_scientist.paper import write_domain_paper_from_run
 from commsci.codex_scientist.runner import run_codex_scientist_branch_expansion
+from commsci.codex_scientistv2.prompts import codex_live_ideation_prompt
 from commsci.config import DEFAULT_CONFIG, deep_merge, write_config
+from commsci.model_client import OpenAICompatibleClient
 
 
 PATCH_RECIPES = [
@@ -41,6 +44,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll_seconds", type=float, default=5)
     parser.add_argument("--action_timeout_seconds", type=float, default=3600)
     parser.add_argument("--init_default_actions", action="store_true")
+    parser.add_argument("--auto_generate_actions", action="store_true")
+    parser.add_argument("--auto_action_model_url", default=None)
+    parser.add_argument("--auto_action_model", default=None)
+    parser.add_argument("--auto_action_temperature", type=float, default=0.2)
+    parser.add_argument("--auto_action_max_completion_tokens", type=int, default=2000)
+    parser.add_argument("--auto_action_dry_run", action="store_true")
+    parser.add_argument("--auto_action_fail_fast", action="store_true")
     parser.add_argument("--doctrine_doc", default="docs/codex-aiscientistv2.md")
     parser.add_argument("--literature_context_file", default=None)
     return parser.parse_args()
@@ -75,6 +85,8 @@ def main() -> int:
         write_generation_prompts(output_dir, action_dir, generation, args.num_agents, doctrine, literature_context)
         if args.wait_for_actions:
             wait_for_actions(action_dir, generation, args.num_agents, args.action_timeout_seconds, args.poll_seconds)
+        if args.auto_generate_actions:
+            auto_generate_actions(output_dir, action_dir, generation, args)
         missing = missing_actions(action_dir, generation, args.num_agents)
         if missing:
             raise FileNotFoundError(
@@ -119,6 +131,15 @@ def build_config(args: argparse.Namespace, action_root: Path) -> dict[str, Any]:
                     "Explore literature-inspired TinyWorlds world-model ideas through cultural evolution. "
                     "Agents should prioritize conceptually distinctive, paper-worthy mechanisms over scalar knob sweeps, "
                     "while preserving explicit lineage: copy, mutate, recombine, reject, or invent."
+                ),
+                "codex_scientist_ideation_prompt": codex_live_ideation_prompt(
+                    workshop_description=(
+                        "We are studying short-budget action-conditioned world-model learning. "
+                        "The benchmark is TinyWorlds, but each proposal should be framed as a publishable ML method, ablation, or negative result."
+                    ),
+                    previous_ideas="No previous proposals at run start; later generations receive population summaries.",
+                    literature_context="Initial literature context is injected into each generation prompt when available.",
+                    last_tool_results="Use the provided literature context and previous population summaries as tool results.",
                 ),
                 "ai_scientist_data_dir": args.tinyworlds_dir,
                 "codex_scientist_time_budget_seconds": args.time_budget_seconds,
@@ -193,6 +214,15 @@ def write_generation_prompts(
     prompt_dir = ensure_dir(output_dir / "live_prompts" / f"generation_{generation:02d}")
     previous_summary = output_dir / f"population_summary_generation_{generation - 1:02d}.json"
     visible = previous_summary.read_text(encoding="utf-8") if previous_summary.exists() else "[]"
+    ideation_prompt = codex_live_ideation_prompt(
+        workshop_description=(
+            "We are studying short-budget action-conditioned world-model learning. "
+            "The benchmark is TinyWorlds, but each proposal should be framed as a publishable ML method, ablation, or negative result."
+        ),
+        previous_ideas=visible[:7000],
+        literature_context=literature_context[:7000],
+        last_tool_results=visible[:7000] if previous_summary.exists() else "No previous generation results.",
+    )
     for agent_index in range(num_agents):
         path = prompt_dir / f"agent_{agent_index}_action_prompt.md"
         write_text(
@@ -239,6 +269,12 @@ Autoresearch doctrine:
 {doctrine[:8000]}
 ```
 
+AI-Scientist-v2-style ideation prompt adapted for this Codex execution:
+
+```markdown
+{ideation_prompt[:14000]}
+```
+
 Write only valid JSON. The JSON may include:
 
 ```json
@@ -282,6 +318,227 @@ def missing_actions(action_dir: Path, generation: int, num_agents: int) -> list[
         for agent_index in range(num_agents)
         if not (action_dir / f"agent_{agent_index}_step_{generation + 1}.json").exists()
     ]
+
+
+def auto_generate_actions(output_dir: Path, action_dir: Path, generation: int, args: argparse.Namespace) -> None:
+    missing = missing_actions(action_dir, generation, args.num_agents)
+    if not missing:
+        return
+    prompt_dir = output_dir / "live_prompts" / f"generation_{generation:02d}"
+    response_dir = ensure_dir(output_dir / "live_action_responses" / f"generation_{generation:02d}")
+    client = build_auto_action_client(args)
+    for path in missing:
+        agent_index = parse_agent_index(path)
+        prompt_path = prompt_dir / f"agent_{agent_index}_action_prompt.md"
+        action = None
+        if client is not None and prompt_path.exists():
+            try:
+                response = client.complete(prompt_path.read_text(encoding="utf-8"), "live_tree_action", response_dir, f"agent_{agent_index}_step_{generation + 1}")
+                action = coerce_action_response(response.text)
+                write_text(response_dir / f"agent_{agent_index}_raw_response.md", response.text)
+            except Exception as exc:
+                write_text(response_dir / f"agent_{agent_index}_error.txt", repr(exc))
+                if args.auto_action_fail_fast:
+                    raise
+        if not action:
+            action = fallback_action(output_dir, generation, agent_index)
+            write_text(response_dir / f"agent_{agent_index}_fallback_reason.txt", "Used deterministic fallback action.\n")
+        write_json(path, action)
+        print(f"Wrote auto action {path}", flush=True)
+
+
+def build_auto_action_client(args: argparse.Namespace) -> OpenAICompatibleClient | None:
+    if args.auto_action_dry_run:
+        return None
+    model_cfg = DEFAULT_CONFIG["model"]
+    return OpenAICompatibleClient(
+        model_url=str(args.auto_action_model_url or model_cfg["model_url"]),
+        model_name=str(args.auto_action_model or model_cfg["default_model"]),
+        temperature=float(args.auto_action_temperature),
+        seed=int(args.seed),
+        max_completion_tokens=int(args.auto_action_max_completion_tokens),
+        dry_run=False,
+    )
+
+
+def coerce_action_response(text: str) -> dict[str, Any]:
+    data = extract_json_object(text)
+    if not isinstance(data, dict):
+        return {}
+    if "ARGUMENTS" in data and isinstance(data["ARGUMENTS"], dict):
+        data = data["ARGUMENTS"]
+    if "idea" in data and isinstance(data["idea"], dict):
+        data = data["idea"]
+    if not data.get("recipe_id"):
+        return {}
+    recipe = data.get("patch_recipe_id") or data.get("patch_recipe") or data.get("code_recipe")
+    if isinstance(recipe, dict):
+        recipe = recipe.get("id")
+    if recipe is not None and str(recipe) not in PATCH_RECIPES:
+        data["patch_recipe_id"] = "baseline_no_patch"
+    return data
+
+
+def extract_json_object(text: str) -> dict[str, Any]:
+    try:
+        data = json.loads(text)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        pass
+    cleaned = re.sub(r"```(?:json)?", "", text)
+    start = cleaned.find("{")
+    if start < 0:
+        return {}
+    depth = 0
+    for index in range(start, len(cleaned)):
+        char = cleaned[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    data = json.loads(cleaned[start:index + 1])
+                except json.JSONDecodeError:
+                    return {}
+                return data if isinstance(data, dict) else {}
+    return {}
+
+
+def fallback_action(output_dir: Path, generation: int, agent_index: int) -> dict[str, Any]:
+    if generation == 0:
+        return fallback_initial_action(agent_index)
+    previous = read_previous_summary(output_dir, generation)
+    ranked = sorted(
+        previous,
+        key=lambda row: row.get("primary_score") if isinstance(row.get("primary_score"), (int, float)) else -1,
+        reverse=True,
+    )
+    best = ranked[0] if ranked else {}
+    second = ranked[1] if len(ranked) > 1 else best
+    weakest = ranked[-1] if ranked else {}
+    operators = ["mutate", "copy", "recombine", "reject", "invent"]
+    mode = operators[(generation + agent_index) % len(operators)]
+    patch = choose_fallback_patch(generation, agent_index, best, second, mode)
+    knobs = choose_fallback_knobs(generation, agent_index, patch, mode)
+    sources = source_rows_for_mode(mode, best, second, weakest)
+    return {
+        "recipe_id": f"g{generation}_agent{agent_index}_{mode}_{patch}",
+        "inheritance_mode": mode,
+        "source_agent_ids": [str(row.get("agent_id")) for row in sources if row.get("agent_id")],
+        "source_node_ids": [str(row.get("node_id")) for row in sources if row.get("node_id")],
+        "copied_recipe_id": best.get("recipe_id") if mode == "copy" else None,
+        "recombined_recipe_ids": [row.get("recipe_id") for row in sources if row.get("recipe_id")] if mode == "recombine" else [],
+        "rejected_recipe_id": weakest.get("recipe_id") if mode == "reject" else None,
+        "patch_recipe_id": patch,
+        "knobs": knobs,
+        "rationale": fallback_rationale(mode, best, second, weakest, patch),
+    }
+
+
+def fallback_initial_action(agent_index: int) -> dict[str, Any]:
+    payloads = [
+        ("initial_action_contrast", "action_grad_dynamics", {"use_env_actions": 1, "action_supervision_weight": 0.35}),
+        ("initial_robust_decoder", "smooth_l1_dynamics_pixel", {"dynamics_pixel_loss_weight": 6.0, "motion_prior_weight": 1.5}),
+        ("initial_short_budget_curriculum", "dynamics_first_schedule", {"depth": 2, "dynamics_change_weight": 2.0}),
+        ("initial_change_focus", "sharpen_change_weights", {"motion_change_weight": 2.0, "dynamics_change_weight": 1.0}),
+    ]
+    name, patch, knobs = payloads[agent_index % len(payloads)]
+    return {
+        "recipe_id": f"g0_agent{agent_index}_{name}",
+        "patch_recipe_id": patch,
+        "inheritance_mode": "invent",
+        "source_agent_ids": [],
+        "source_node_ids": [],
+        "knobs": knobs,
+        "rationale": "Autogenerated initial branch for unattended cultural tree search.",
+    }
+
+
+def read_previous_summary(output_dir: Path, generation: int) -> list[dict[str, Any]]:
+    path = output_dir / f"population_summary_generation_{generation - 1:02d}.json"
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, list) else []
+
+
+def choose_fallback_patch(
+    generation: int,
+    agent_index: int,
+    best: dict[str, Any],
+    second: dict[str, Any],
+    mode: str,
+) -> str:
+    if mode == "copy" and best.get("patch_recipe_id"):
+        return str(best["patch_recipe_id"])
+    if mode == "recombine" and second.get("patch_recipe_id"):
+        return str(second["patch_recipe_id"])
+    if mode == "reject":
+        return "baseline_no_patch"
+    patch_cycle = [
+        "action_grad_dynamics",
+        "smooth_l1_dynamics_pixel",
+        "dynamics_first_schedule",
+        "sharpen_change_weights",
+        "full_budget_action_supervision",
+        "baseline_no_patch",
+    ]
+    return patch_cycle[(generation + agent_index) % len(patch_cycle)]
+
+
+def choose_fallback_knobs(generation: int, agent_index: int, patch: str, mode: str) -> dict[str, Any]:
+    variants = [
+        {"use_env_actions": 1, "action_supervision_weight": 0.2 + 0.1 * ((generation + agent_index) % 4)},
+        {"dynamics_pixel_loss_weight": 4.0 + ((generation + agent_index) % 4), "motion_prior_weight": 1.0},
+        {"depth": 2 + ((generation + agent_index) % 2), "dynamics_change_weight": 1.0 + ((generation + agent_index) % 3)},
+        {"motion_change_weight": 1.0 + ((generation + agent_index) % 4), "motion_loss_weight": 1.0},
+        {"action_supervision_weight": 0.4, "dynamics_change_weight": 2.0},
+    ]
+    if mode == "copy":
+        return {}
+    if mode == "reject":
+        return {"depth": 1}
+    index = PATCH_RECIPES.index(patch) if patch in PATCH_RECIPES else (generation + agent_index)
+    return variants[index % len(variants)]
+
+
+def source_rows_for_mode(
+    mode: str,
+    best: dict[str, Any],
+    second: dict[str, Any],
+    weakest: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if mode in {"copy", "mutate"}:
+        return [best] if best else []
+    if mode == "recombine":
+        return [row for row in [best, second] if row]
+    if mode == "reject":
+        return [weakest] if weakest else []
+    return []
+
+
+def fallback_rationale(
+    mode: str,
+    best: dict[str, Any],
+    second: dict[str, Any],
+    weakest: dict[str, Any],
+    patch: str,
+) -> str:
+    if mode == "copy":
+        return f"Copy the current best branch {best.get('node_id')} to test whether its score is reproducible."
+    if mode == "mutate":
+        return f"Mutate best branch {best.get('node_id')} with patch {patch} to preserve the strongest evidence while exploring one change."
+    if mode == "recombine":
+        return f"Recombine source branches {best.get('node_id')} and {second.get('node_id')} using patch {patch}."
+    if mode == "reject":
+        return f"Reject weak branch {weakest.get('node_id')} and return to a conservative control with patch {patch}."
+    return f"Invent a fresh branch with patch {patch} to preserve exploration in the population."
+
+
+def parse_agent_index(path: Path) -> int:
+    match = re.search(r"agent_(\d+)_step_", path.name)
+    return int(match.group(1)) if match else 0
 
 
 def run_generation(

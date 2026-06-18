@@ -190,6 +190,7 @@ def main() -> int:
         assert (v2_dir / "ablation_report.json").exists()
         assert (v2_dir / "literature" / "references.bib").exists()
         assert (v2_dir / "literature" / "literature_review.json").exists()
+        assert (v2_dir / "codex_tasks" / "figure_making.md").exists()
         assert (v2_dir / "codex_tasks" / "paper_reflection.md").exists()
         assert (tmp_path / "figures" / "best_score_by_generation.svg").exists()
         assert (tmp_path / "figures" / "cultural_tree.svg").exists()

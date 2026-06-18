@@ -33,6 +33,17 @@ DEFAULTS = {
     "ablation_time_budget_seconds": 60,
     "ablation_timeout_seconds": 240,
     "ablation_parallel_workers": 1,
+    "run_codex_tasks": True,
+    "codex_task_names": "idea_generation,figure_making,paper_writeup,paper_reflection,llm_review",
+    "codex_task_model_url": None,
+    "codex_task_model": None,
+    "codex_task_temperature": None,
+    "codex_task_max_completion_tokens": 12000,
+    "codex_task_dry_run": False,
+    "codex_task_fail_fast": False,
+    "apply_codex_task_outputs": True,
+    "execute_plot_task_outputs": True,
+    "codex_task_execution_timeout_seconds": 120,
 }
 
 
@@ -61,6 +72,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ablation_time_budget_seconds", type=int, default=None)
     parser.add_argument("--ablation_timeout_seconds", type=int, default=None)
     parser.add_argument("--ablation_parallel_workers", type=int, default=None)
+    parser.add_argument("--run_codex_tasks", dest="run_codex_tasks", action="store_true", default=None)
+    parser.add_argument("--no_run_codex_tasks", dest="run_codex_tasks", action="store_false")
+    parser.add_argument("--codex_task_names", default=None, help="Comma-separated codex task names, e.g. idea_generation,figure_making,paper_writeup,llm_review.")
+    parser.add_argument("--codex_task_model_url", default=None)
+    parser.add_argument("--codex_task_model", default=None)
+    parser.add_argument("--codex_task_temperature", type=float, default=None)
+    parser.add_argument("--codex_task_max_completion_tokens", type=int, default=None)
+    parser.add_argument("--codex_task_dry_run", dest="codex_task_dry_run", action="store_true", default=None)
+    parser.add_argument("--no_codex_task_dry_run", dest="codex_task_dry_run", action="store_false")
+    parser.add_argument("--codex_task_fail_fast", action="store_true", default=None)
+    parser.add_argument("--apply_codex_task_outputs", dest="apply_codex_task_outputs", action="store_true", default=None)
+    parser.add_argument("--no_apply_codex_task_outputs", dest="apply_codex_task_outputs", action="store_false")
+    parser.add_argument("--execute_plot_task_outputs", dest="execute_plot_task_outputs", action="store_true", default=None)
+    parser.add_argument("--no_execute_plot_task_outputs", dest="execute_plot_task_outputs", action="store_false")
+    parser.add_argument("--codex_task_execution_timeout_seconds", type=int, default=None)
     args = parser.parse_args()
     return apply_config_defaults(args)
 
@@ -113,6 +139,17 @@ def defaults_from_config(config: dict[str, Any]) -> dict[str, Any]:
         "ablation_time_budget_seconds",
         "ablation_timeout_seconds",
         "ablation_parallel_workers",
+        "run_codex_tasks",
+        "codex_task_names",
+        "codex_task_model_url",
+        "codex_task_model",
+        "codex_task_temperature",
+        "codex_task_max_completion_tokens",
+        "codex_task_dry_run",
+        "codex_task_fail_fast",
+        "apply_codex_task_outputs",
+        "execute_plot_task_outputs",
+        "codex_task_execution_timeout_seconds",
     }
     for key in direct_keys:
         if key in v2:
@@ -125,6 +162,8 @@ def defaults_from_config(config: dict[str, Any]) -> dict[str, Any]:
         out.setdefault("num_agents", compute["num_agents"])
     if "seed" in model:
         out.setdefault("seed", model["seed"])
+    if model.get("mock_model"):
+        out.setdefault("codex_task_dry_run", True)
     mapping = {
         "codex_scientist_time_budget_seconds": "time_budget_seconds",
         "codex_scientist_timeout_seconds": "timeout_seconds",

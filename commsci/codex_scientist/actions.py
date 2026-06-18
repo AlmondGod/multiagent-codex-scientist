@@ -185,6 +185,8 @@ def normalize_patch_recipe(raw: dict[str, Any], config: dict[str, Any]) -> dict[
 
 def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, Any]:
     nested = raw.get("inheritance") if isinstance(raw.get("inheritance"), dict) else {}
+
+    # Accept several authoring formats, but collapse them to one operator field.
     mode = str(
         raw.get(
             "inheritance_mode",
@@ -193,6 +195,8 @@ def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, A
     ).strip().lower()
     if mode not in INHERITANCE_MODES:
         mode = default_mode
+
+    # Preserve lineage so copy/mutate/recombine decisions are auditable later.
     source_agent_ids = raw.get(
         "source_agent_ids",
         raw.get("source_agents", raw.get("source_agent_id", nested.get("source_agent_ids", []))),
@@ -201,10 +205,14 @@ def normalize_inheritance(raw: dict[str, Any], default_mode: str) -> dict[str, A
         "source_node_ids",
         raw.get("source_nodes", raw.get("source_node_id", nested.get("source_node_ids", []))),
     )
+
+    # Normalize scalar IDs into lists for consistent downstream aggregation.
     if isinstance(source_agent_ids, str):
         source_agent_ids = [source_agent_ids]
     if isinstance(source_node_ids, str):
         source_node_ids = [source_node_ids]
+
+    # Track the specific cultural operation, not just the final action.
     copied_recipe_id = raw.get("copied_recipe_id", raw.get("source_recipe_id", nested.get("copied_recipe_id")))
     rejected_recipe_id = raw.get("rejected_recipe_id", nested.get("rejected_recipe_id"))
     recombined_recipe_ids = raw.get("recombined_recipe_ids", nested.get("recombined_recipe_ids", []))
@@ -336,6 +344,8 @@ def apply_patch_recipe(workspace: Path, action: dict[str, Any]) -> dict[str, Any
 def replace_once(path: Path, old: str, new: str) -> None:
     text = path.read_text(encoding="utf-8")
     if old not in text:
+        if new in text:
+            return
         raise ValueError(f"Patch target not found in {path.name}")
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 

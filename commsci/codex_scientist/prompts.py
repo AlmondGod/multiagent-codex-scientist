@@ -15,7 +15,15 @@ def worker_task_prompt(
     action: dict[str, Any],
     critique_context: str | None,
     memory: list[str],
+    ideation_prompt: str | None = None,
 ) -> str:
+    ideation_text = (
+        "\n## Codex-Scientist-v2 Ideation Contract\n"
+        + ideation_prompt
+        + "\n"
+        if ideation_prompt
+        else ""
+    )
     return f"""# Codex-Scientist Worker Task
 
 You are a live Codex node worker in a supervised tree-search science run.
@@ -29,6 +37,7 @@ You are a live Codex node worker in a supervised tree-search science run.
 
 ## Scientific Objective
 {task_spec}
+{ideation_text}
 
 ## Assigned Action
 ```json
